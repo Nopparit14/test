@@ -34,22 +34,6 @@ final class LicenseManager: ObservableObject {
         message = "Enter your license key"
     }
 
-    var deviceUDID: String {
-        if let saved = string(for: "xsteam-device-udid"), !saved.isEmpty {
-            return saved
-        }
-        let generated = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
-        save(generated, for: "xsteam-device-udid")
-        return generated
-    }
-
-    func checkByUDID() {
-        guard !isBusy else { return }
-        isBusy = true
-        message = "Checking UDID with server…"
-        validateOnline(key: "", isSilent: false)
-    }
-
     func activate(key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isBusy else { return }
@@ -87,7 +71,7 @@ final class LicenseManager: ObservableObject {
             return
         }
 
-        let deviceId = deviceUDID
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "DEVICE_ID_UNAVAILABLE"
         let deviceName = UIDevice.current.name
 
         // Attempt 1: POST request with JSON

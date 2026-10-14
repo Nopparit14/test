@@ -47,9 +47,6 @@ struct LicenseActivationView: View {
                             VStack(spacing: 20) {
                                 cardHeader
 
-                                // UDID / Hardware ID Section with Copy Button
-                                udidSection
-
                                 // Key Input Field with Paste & Clear Buttons
                                 keyInputField
 
@@ -197,73 +194,6 @@ struct LicenseActivationView: View {
             .padding(.vertical, 5)
             .background(Color.green.opacity(0.12), in: Capsule())
             .overlay(Capsule().stroke(Color.green.opacity(0.3), lineWidth: 1))
-        }
-    }
-
-    // MARK: - UDID Section
-    private var udidSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                HStack(spacing: 5) {
-                    Image(systemName: "iphone.gen3")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(red: 0.9, green: 0.25, blue: 0.35))
-                    Text("DEVICE UDID / HARDWARE ID")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.65))
-                        .tracking(1.2)
-                }
-                Spacer()
-
-                Button {
-                    let udid = manager.deviceUDID
-                    UIPasteboard.general.string = udid
-                    withAnimation { showCopiedAlert = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        withAnimation { showCopiedAlert = false }
-                    }
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: showCopiedAlert ? "checkmark.circle.fill" : "doc.on.doc.fill")
-                        Text(showCopiedAlert ? "COPIED!" : "COPY UDID")
-                    }
-                    .font(.system(size: 10, weight: .heavy, design: .rounded))
-                    .foregroundStyle(showCopiedAlert ? Color.green : Color(red: 0.9, green: 0.25, blue: 0.35))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Color(red: 0.9, green: 0.25, blue: 0.35).opacity(showCopiedAlert ? 0.05 : 0.15), in: Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-
-            HStack(spacing: 8) {
-                Text(manager.deviceUDID)
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.white.opacity(0.85))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-
-                Spacer()
-
-                Button {
-                    manager.checkByUDID()
-                } label: {
-                    HStack(spacing: 3) {
-                        Image(systemName: "bolt.fill")
-                        Text("CHECK UDID")
-                    }
-                    .font(.system(size: 9, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color(red: 0.9, green: 0.2, blue: 0.3), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color(red: 0.03, green: 0.04, blue: 0.05), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.white.opacity(0.08), lineWidth: 1))
         }
     }
 
