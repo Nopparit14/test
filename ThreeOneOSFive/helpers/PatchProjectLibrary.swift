@@ -53,13 +53,29 @@ enum PatchProjectLibrary {
             return
         }
 
-        // Xcode may flatten folder references into the app bundle. Resolve both
-        // the intended Patches subdirectory and the flattened bundle root so
-        // standalone builds remain self-contained across packaging layouts.
-        let nestedURLs = bundle.urls(forResourcesWithExtension: "OGIOS", subdirectory: "Patches") ?? []
-        let flattenedURLs = bundle.urls(forResourcesWithExtension: "OGIOS", subdirectory: nil) ?? []
+        // Resolve bundled packages with extension .3105 and .OGIOS in Patches and bundle root
+        let extensions = ["3105", "OGIOS", "ogios"]
+        var bundledURLs: [URL] = []
         var seen = Set<String>()
-        let bundledURLs = (nestedURLs + flattenedURLs).filter { seen.insert($0.standardizedFileURL.path).inserted }
+        for ext in extensions {
+            let nested = bundle.urls(forResourcesWithExtension: ext, subdirectory: "Patches") ?? []
+            let flattened = bundle.urls(forResourcesWithExtension: ext, subdirectory: nil) ?? []
+            for u in (nested + flattened) {
+                if seen.insert(u.standardizedFileURL.path).inserted {
+                    bundledURLs.append(u)
+                }
+            }
+        }
+
+        // Direct directory scan in Patches subdirectory if present
+        if let patchesDir = bundle.resourceURL?.appendingPathComponent("Patches", isDirectory: true),
+           let contents = try? fileManager.contentsOfDirectory(at: patchesDir, includingPropertiesForKeys: nil) {
+            for u in contents where extensions.contains(u.pathExtension) || extensions.contains(u.pathExtension.lowercased()) {
+                if seen.insert(u.standardizedFileURL.path).inserted {
+                    bundledURLs.append(u)
+                }
+            }
+        }
 
         for sourceURL in bundledURLs {
             let destinationURL = root.appendingPathComponent(sourceURL.lastPathComponent)
@@ -83,7 +99,7 @@ enum PatchProjectLibrary {
               ) else { return [] }
 
         var byID: [UUID: PatchLibraryItem] = [:]
-        for url in urls where url.pathExtension.lowercased() == "OGIOS" {
+        for url in urls where ["3105", "ogios"].contains(url.pathExtension.lowercased()) {
             do {
                 let data = try readPackage(at: url)
                 let summary = try PatchPackageCodec.inspect(data)

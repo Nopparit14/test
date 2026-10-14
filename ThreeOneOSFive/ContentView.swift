@@ -518,8 +518,23 @@ struct ContentView: View {
         magicEnabled = isPatchActive("OGIOS File (14).3105")
     }
 
+    private func findPatchItem(for packageFilename: String) -> PatchLibraryItem? {
+        if let found = patchStore.items.first(where: {
+            $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame ||
+            $0.packageURL.deletingPathExtension().lastPathComponent.caseInsensitiveCompare((packageFilename as NSString).deletingPathExtension) == .orderedSame
+        }) {
+            return found
+        }
+        PatchProjectLibrary.installBundledPackagesIfNeeded()
+        patchStore.reload()
+        return patchStore.items.first(where: {
+            $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame ||
+            $0.packageURL.deletingPathExtension().lastPathComponent.caseInsensitiveCompare((packageFilename as NSString).deletingPathExtension) == .orderedSame
+        })
+    }
+
     private func isPatchActive(_ packageFilename: String) -> Bool {
-        patchStore.items.first(where: { $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame })
+        findPatchItem(for: packageFilename)
             .flatMap { DevicePatchService.latestReceipt(projectID: $0.id) } != nil
     }
 
@@ -544,7 +559,7 @@ struct ContentView: View {
 
     private func togglePatch(packageFilename: String, state: Binding<Bool>) {
         guard !patchOperationBusy else { return }
-        guard let item = patchStore.items.first(where: { $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame }) else {
+        guard let item = findPatchItem(for: packageFilename) else {
             patchMessage = "ERROR — PACKAGE NOT FOUND"
             return
         }
