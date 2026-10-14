@@ -96,9 +96,6 @@ final class LicenseManager: ObservableObject {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 8
         config.timeoutIntervalForResource = 12
-        if #available(iOS 16.0, *) {
-            config.assumesHTTP3CapCapable = false
-        }
         let session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
         let startTime = Date()
 
@@ -192,9 +189,6 @@ final class LicenseManager: ObservableObject {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 15
-        if #available(iOS 16.0, *) {
-            config.assumesHTTP3CapCapable = false
-        }
         let session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
 
         session.dataTask(with: req) { [weak self] data, response, error in
@@ -247,9 +241,6 @@ final class LicenseManager: ObservableObject {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 15
-        if #available(iOS 16.0, *) {
-            config.assumesHTTP3CapCapable = false
-        }
         let session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
 
         session.dataTask(with: req) { [weak self] data, response, error in
@@ -299,9 +290,6 @@ final class LicenseManager: ObservableObject {
         let config = URLSessionConfiguration.ephemeral
         config.timeoutIntervalForRequest = 10
         config.timeoutIntervalForResource = 15
-        if #available(iOS 16.0, *) {
-            config.assumesHTTP3CapCapable = false
-        }
         let session = URLSession(configuration: config, delegate: sessionDelegate, delegateQueue: nil)
 
         session.dataTask(with: request) { [weak self] data, response, error in
