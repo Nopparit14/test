@@ -13,7 +13,6 @@ require_once __DIR__ . '/config.php';
 
 $pdo = getDB();
 
-// Accept both GET and POST (JSON or FormData)
 $inputJSON = file_get_contents('php://input');
 $input = json_decode($inputJSON, true) ?: $_REQUEST;
 
@@ -21,6 +20,14 @@ $action = $input['action'] ?? 'check';
 $key = trim($input['key'] ?? '');
 $deviceId = trim($input['device_id'] ?? '');
 $deviceName = trim($input['device_name'] ?? 'iOS Device');
+$clientIP = $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
+
+function logActivity($pdo, $key, $action, $deviceId, $deviceName, $ip) {
+    try {
+        $stmt = $pdo->prepare("INSERT INTO `activity_logs` (`license_key`, `action`, `device_id`, `device_name`, `ip_address`) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute([$key, $action, $deviceId, $deviceName, $ip]);
+    } catch (Exception $e) {}
+}
 
 if (empty($key)) {
     echo json_encode(['status' => 'error', 'message' => 'License key is required.']);
@@ -33,12 +40,14 @@ $stmt->execute([$key]);
 $license = $stmt->fetch();
 
 if (!$license) {
+    logActivity($pdo, $key, 'FAILED_INVALID_KEY', $deviceId, $deviceName, $clientIP);
     echo json_encode(['status' => 'error', 'message' => 'Invalid license key!']);
     exit;
 }
 
 // Check if banned
 if ($license['status'] === 'banned') {
+    logActivity($pdo, $key, 'BLOCKED_BANNED', $deviceId, $deviceName, $clientIP);
     echo json_encode(['status' => 'error', 'message' => 'This license key has been banned.']);
     exit;
 }
@@ -67,6 +76,8 @@ if ($license['status'] === 'unused') {
     ");
     $update->execute([$deviceId, $deviceName, $now->format('Y-m-d H:i:s'), $expiresAt, $license['id']]);
 
+    logActivity($pdo, $key, 'ACTIVATED_SUCCESS', $deviceId, $deviceName, $clientIP);
+
     echo json_encode([
         'status' => 'success',
         'message' => 'License activated successfully!',
@@ -78,8 +89,9 @@ if ($license['status'] === 'unused') {
     exit;
 }
 
-// 2. If key is ACTIVE -> CHECK EXPIRY & DEVICE LOCK (HWID)
+// 2. If key is ACTIVE -> CHECK HWID LOCK
 if (!empty($license['device_id']) && !empty($deviceId) && $license['device_id'] !== $deviceId) {
+    logActivity($pdo, $key, 'BLOCKED_HWID_MISMATCH', $deviceId, $deviceName, $clientIP);
     echo json_encode([
         'status' => 'error',
         'message' => 'HWID Mismatch! This key is already bound to another device.'
@@ -91,9 +103,8 @@ if (!empty($license['device_id']) && !empty($deviceId) && $license['device_id'] 
 if (!empty($license['expires_at'])) {
     $expiresDate = new DateTime($license['expires_at']);
     if ($now > $expiresDate) {
-        // Mark as expired in DB
         $pdo->prepare("UPDATE `licenses` SET `status` = 'expired' WHERE `id` = ?")->execute([$license['id']]);
-
+        logActivity($pdo, $key, 'EXPIRED', $deviceId, $deviceName, $clientIP);
         echo json_encode([
             'status' => 'error',
             'message' => 'License key has expired on ' . $license['expires_at']
@@ -103,6 +114,8 @@ if (!empty($license['expires_at'])) {
 
     $interval = $now->diff($expiresDate);
     $daysLeft = $interval->days;
+
+    logActivity($pdo, $key, 'VERIFIED_ACTIVE', $deviceId, $deviceName, $clientIP);
 
     echo json_encode([
         'status' => 'success',
@@ -115,6 +128,7 @@ if (!empty($license['expires_at'])) {
 }
 
 // Lifetime key
+logActivity($pdo, $key, 'VERIFIED_LIFETIME', $deviceId, $deviceName, $clientIP);
 echo json_encode([
     'status' => 'success',
     'message' => 'Lifetime license is active.',

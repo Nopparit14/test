@@ -27,7 +27,19 @@ CREATE TABLE IF NOT EXISTS `licenses` (
     INDEX `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Activity Logs table
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `license_key` VARCHAR(64) NOT NULL,
+    `action` VARCHAR(50) NOT NULL,
+    `device_id` VARCHAR(128) DEFAULT NULL,
+    `device_name` VARCHAR(128) DEFAULT NULL,
+    `ip_address` VARCHAR(45) DEFAULT NULL,
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_log_key` (`license_key`),
+    INDEX `idx_log_date` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Insert default admin if not exists (username: admin, pass: admin123)
--- Password hash: password_hash('admin123', PASSWORD_BCRYPT)
 INSERT IGNORE INTO `admins` (`id`, `username`, `password`) VALUES
 (1, 'admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi');

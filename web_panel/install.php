@@ -5,16 +5,14 @@ $message = '';
 $status = '';
 
 try {
-    // Connect without selecting database first
     $pdo = new PDO("mysql:host=" . DB_HOST . ";charset=utf8mb4", DB_USER, DB_PASS, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ]);
 
-    // Create database
     $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
     $pdo->exec("USE `" . DB_NAME . "`");
 
-    // Create tables
+    // Admins table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `admins` (
             `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -24,6 +22,7 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    // Licenses table
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS `licenses` (
             `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -42,7 +41,22 @@ try {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
-    // Insert default admin: admin / admin123
+    // Activity Logs table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `activity_logs` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `license_key` VARCHAR(64) NOT NULL,
+            `action` VARCHAR(50) NOT NULL,
+            `device_id` VARCHAR(128) DEFAULT NULL,
+            `device_name` VARCHAR(128) DEFAULT NULL,
+            `ip_address` VARCHAR(45) DEFAULT NULL,
+            `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+            INDEX `idx_log_key` (`license_key`),
+            INDEX `idx_log_date` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+
+    // Insert default admin if not exists
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM `admins` WHERE `username` = 'admin'");
     $stmt->execute();
     if ($stmt->fetchColumn() == 0) {
