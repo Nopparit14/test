@@ -618,3 +618,87 @@ private enum PatchAudioFeedback {
         synthesizer.speak(utterance)
     }
 }
+
+private struct PatchUnlockPrompt: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var store: PatchProjectStore
+    @State private var password = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    SecureField("Package password", text: $password)
+                        .textContentType(.password)
+                        .submitLabel(.done)
+                        .onSubmit(unlock)
+                        .onChange(of: password) { _ in store.clearUnlockError() }
+                    if let errorKey = store.unlockErrorKey {
+                        Text(AppLanguage.english.text(errorKey))
+                            .font(.footnote)
+                            .foregroundStyle(.red)
+                    }
+                } footer: {
+                    Text("Enter the password once to unlock this OGIOS package on this device.")
+                }
+            }
+            .navigationTitle("Unlock package")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Unlock", action: unlock)
+                        .disabled(password.isEmpty || store.isBusy)
+                }
+            }
+        }
+    }
+
+    private func unlock() {
+        guard !password.isEmpty else { return }
+        store.unlock(password: password)
+    }
+}
+
+struct AnimatedHyperBackdrop: View {
+    @State private var animate = false
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                AppTheme.pageBackground
+                Circle()
+                    .fill(AppTheme.accent.opacity(0.12))
+                    .frame(width: 280, height: 280)
+                    .blur(radius: 70)
+                    .offset(x: animate ? 120 : -120, y: -proxy.size.height * 0.23)
+                Circle()
+                    .fill(AppTheme.secondaryAccent.opacity(0.08))
+                    .frame(width: 260, height: 260)
+                    .blur(radius: 80)
+                    .offset(x: animate ? -100 : 100, y: proxy.size.height * 0.22)
+                GridOverlay()
+            }
+            .onAppear {
+                withAnimation(.easeInOut(duration: 7).repeatForever(autoreverses: true)) { animate = true }
+            }
+        }
+    }
+}
+
+private struct GridOverlay: View {
+    var body: some View {
+        Canvas { context, size in
+            var path = Path()
+            let spacing: CGFloat = 44
+            stride(from: CGFloat(0), through: size.width, by: spacing).forEach { x in
+                path.move(to: CGPoint(x: x, y: 0)); path.addLine(to: CGPoint(x: x, y: size.height))
+            }
+            stride(from: CGFloat(0), through: size.height, by: spacing).forEach { y in
+                path.move(to: CGPoint(x: 0, y: y)); path.addLine(to: CGPoint(x: size.width, y: y))
+            }
+            context.stroke(path, with: .color(AppTheme.accent.opacity(0.055)), lineWidth: 1)
+        }
+    }
+}
