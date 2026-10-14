@@ -1,0 +1,10 @@
+﻿.antigravity/
+.cache/
+.gemini/
+.claude/
+.cursor/
+.copilot/
+.vscode/
+node_modules/
+*.xcarchive
+*.ipa
