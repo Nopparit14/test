@@ -74,7 +74,10 @@ final class LicenseManager: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 10
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_16 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.timeoutInterval = 15
 
         let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "DEVICE_ID_UNAVAILABLE"
         let deviceName = UIDevice.current.name
@@ -95,7 +98,13 @@ final class LicenseManager: ObservableObject {
         }
         request.httpBody = httpBody
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 15
+        config.timeoutIntervalForResource = 30
+        let session = URLSession(configuration: config)
+
+        session.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.isBusy = false
@@ -104,6 +113,13 @@ final class LicenseManager: ObservableObject {
                     // Network error
                     if !isSilent {
                         self.message = "Network error: \(error.localizedDescription)"
+                    }
+                    return
+                }
+
+                if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+                    if !isSilent {
+                        self.message = "Server error (HTTP \(http.statusCode))"
                     }
                     return
                 }
