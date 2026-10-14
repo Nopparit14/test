@@ -17,8 +17,8 @@ final class LicenseManager: ObservableObject {
     @Published private(set) var contactOwner: String?
     @Published var rememberKey = true
 
-    private let service = "com.OGIOS.external-ios.activation"
-    private let keyAccount = "license-key"
+    private let service = "com.XSTEAM.external-ios.activation"
+    private let keyAccount = "xsteam-license-key"
     private var lastAttemptAt: Date?
 
     init() {

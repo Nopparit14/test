@@ -99,7 +99,7 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
-                    Text("OGIOS")
+                    Text("XSTEAM")
                         .font(.system(size: 24, weight: .black, design: .rounded))
                         .tracking(2.5)
                         .foregroundStyle(.white)
@@ -467,7 +467,7 @@ struct ContentView: View {
     // MARK: - Developer Credits
     private var developerCredits: some View {
         VStack(spacing: 8) {
-            Text("Developed by OGIOS TEAM")
+            Text("Developed by XSTEAM TEAM")
                 .font(.system(size: 11, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.55))
 

@@ -15,7 +15,7 @@ on:
       project_name:
         description: Output IPA name
         required: false
-        default: OGIOS
+        default: XSTEAM
         type: string
       scheme:
         description: Xcode scheme
@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 30
     env:
       BUNDLE_ID: ${{ inputs.bundle_id || 'com.apple.mobile.MobileHouseArrest' }}
-      PROJECT_NAME: ${{ inputs.project_name || 'OGIOS' }}
+      PROJECT_NAME: ${{ inputs.project_name || 'XSTEAM' }}
       INPUT_SCHEME: ${{ inputs.scheme || 'OGIOS' }}
     steps:
       - name: Checkout source
@@ -91,6 +91,8 @@ jobs:
           done
           
           /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable OGIOS" "$APP_PATH/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName XSTEAM" "$APP_PATH/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName XSTEAM" "$APP_PATH/Info.plist" || true
           /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType APPL" "$APP_PATH/Info.plist" || true
 
           mkdir -p "$RUNNER_TEMP/Payload"
@@ -120,7 +122,7 @@ jobs:
         continue-on-error: true
         with:
           tag_name: latest
-          name: "OGIOS Latest Build (Auto-Release)"
+          name: "XSTEAM Latest Build (Auto-Release)"
           body: |
             Automated IPA build from commit `${{ github.sha }}`.
             - Scheme: `${{ steps.locate.outputs.scheme }}`

@@ -147,7 +147,7 @@ struct LicenseActivationView: View {
             }
             .padding(.bottom, 4)
 
-            Text("OGIOS")
+            Text("XSTEAM")
                 .font(.system(size: 32, weight: .black, design: .rounded))
                 .tracking(3)
                 .foregroundStyle(
@@ -228,7 +228,7 @@ struct LicenseActivationView: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(key.isEmpty ? Color.white.opacity(0.3) : Color(red: 0.9, green: 0.25, blue: 0.35))
 
-                TextField("OGIOS-XXXX-XXXX-XXXX", text: $key)
+                TextField("XSTEAM-XXXX-XXXX-XXXX", text: $key)
                     .focused($keyFocused)
                     .textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
@@ -424,7 +424,7 @@ struct LicenseActivationView: View {
     // MARK: - Footer
     private var footerSection: some View {
         VStack(spacing: 4) {
-            Text("OGIOS Engine • Build 2026.10")
+            Text("XSTEAM Engine • Build 2026.10")
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundStyle(Color.white.opacity(0.35))
 

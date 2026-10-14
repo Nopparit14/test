@@ -21,8 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $count = max(1, min(100, (int)($_POST['count'] ?? 1)));
         $duration = (int)($_POST['duration'] ?? 30);
         $note = trim($_POST['note'] ?? '');
-        $prefix = strtoupper(trim($_POST['prefix'] ?? 'OGIOS'));
-        if (empty($prefix)) $prefix = 'OGIOS';
+        $prefix = strtoupper(trim($_POST['prefix'] ?? 'XSTEAM'));
+        if (empty($prefix)) $prefix = 'XSTEAM';
 
         $stmt = $pdo->prepare("INSERT INTO `licenses` (`license_key`, `duration_days`, `status`, `note`) VALUES (?, ?, 'unused', ?)");
         
@@ -173,7 +173,7 @@ $apiEndpointURL = "{$protocol}{$host}{$uri}/api.php";
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OGIOS • License Management Studio</title>
+    <title>XSTEAM • License Management Studio</title>
     <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -552,7 +552,7 @@ $apiEndpointURL = "{$protocol}{$host}{$uri}/api.php";
         <div class="sidebar-brand">
             <div class="brand-icon"><i class="fa-solid fa-shield-halved"></i></div>
             <div class="brand-text">
-                <h2>OGIOS</h2>
+                <h2>XSTEAM</h2>
                 <p>License Studio Pro</p>
             </div>
         </div>
@@ -610,7 +610,7 @@ $apiEndpointURL = "{$protocol}{$host}{$uri}/api.php";
                         }
                     ?>
                 </h1>
-                <p>Manage, generate and enforce licenses for your iOS OGIOS applications</p>
+                <p>Manage, generate and enforce licenses for your iOS XSTEAM applications</p>
             </div>
             <div class="header-actions">
                 <a href="index.php?tab=generator" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Generate Keys</a>
@@ -866,7 +866,7 @@ $apiEndpointURL = "{$protocol}{$host}{$uri}/api.php";
                     <div class="form-grid">
                         <div class="form-group">
                             <label><i class="fa-solid fa-tag"></i> Key Prefix</label>
-                            <input type="text" name="prefix" class="form-control" value="OGIOS" placeholder="e.g. OGIOS, VIP, PRO" required>
+                            <input type="text" name="prefix" class="form-control" value="XSTEAM" placeholder="e.g. XSTEAM, VIP, PRO" required>
                         </div>
                         <div class="form-group">
                             <label><i class="fa-solid fa-hourglass-half"></i> License Duration</label>
@@ -1065,7 +1065,7 @@ $apiEndpointURL = "{$protocol}{$host}{$uri}/api.php";
             const txt = document.getElementById('generatedKeysText').value;
             const blob = new Blob([txt], { type: 'text/plain' });
             const anchor = document.createElement('a');
-            anchor.download = 'OGIOS_Keys_' + new Date().toISOString().slice(0,10) + '.txt';
+            anchor.download = 'XSTEAM_Keys_' + new Date().toISOString().slice(0,10) + '.txt';
             anchor.href = window.URL.createObjectURL(blob);
             anchor.click();
         }
@@ -1083,7 +1083,7 @@ $apiEndpointURL = "{$protocol}{$host}{$uri}/api.php";
             }
             let blob = new Blob([csv.join("\n")], { type: "text/csv" });
             let a = document.createElement("a");
-            a.download = "OGIOS_Licenses_Export.csv";
+            a.download = "XSTEAM_Licenses_Export.csv";
             a.href = window.URL.createObjectURL(blob);
             a.click();
         }
