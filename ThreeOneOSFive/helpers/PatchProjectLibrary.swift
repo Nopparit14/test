@@ -107,22 +107,23 @@ enum PatchProjectLibrary {
                 if let contentKey = try PatchKeyStore.load(for: summary) {
                     decoded = try PatchPackageCodec.decode(data, contentKey: contentKey)
                 } else if summary.isPasswordProtected {
-                    // Only the app's renamed bundled resources use the internal
-                    // key; imported packages remain locked for the user.
-                    guard url.deletingPathExtension().lastPathComponent.hasPrefix("OGIOS File (") else {
-                        decoded = nil
-                        continue
+                    // Automatically unlock all password-protected packages without prompting
+                    let passwordsToTry = [
+                        PatchPackageCodec.bundledResourcePassword,
+                        "3105",
+                        "OGIOS",
+                        "XSTEAM",
+                        ""
+                    ]
+                    var unlocked: DecodedPatchPackage?
+                    for pass in passwordsToTry {
+                        if let b = try? PatchPackageCodec.decode(data, password: pass) {
+                            try? PatchKeyStore.store(b.contentKey, for: summary)
+                            unlocked = b
+                            break
+                        }
                     }
-                    do {
-                        let bundled = try PatchPackageCodec.decode(
-                            data,
-                            password: PatchPackageCodec.bundledResourcePassword
-                        )
-                        try PatchKeyStore.store(bundled.contentKey, for: summary)
-                        decoded = bundled
-                    } catch {
-                        decoded = nil
-                    }
+                    decoded = unlocked
                 } else {
                     decoded = try PatchPackageCodec.decode(data, password: nil)
                 }

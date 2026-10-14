@@ -586,11 +586,28 @@ struct ContentView: View {
                     try DevicePatchService.restore(receipt: receipt)
                     result = .restored
                 } else {
-                    guard let project else {
-                        result = .unavailable("PASSWORD REQUIRED — UNLOCK PACKAGE")
+                    var targetProject = project
+                    if targetProject == nil {
+                        if let data = try? PatchProjectLibrary.readPackage(at: item.packageURL) {
+                            let passwordsToTry = [
+                                PatchPackageCodec.bundledResourcePassword,
+                                "3105",
+                                "OGIOS",
+                                "XSTEAM"
+                            ]
+                            for p in passwordsToTry {
+                                if let unlocked = try? PatchPackageCodec.decode(data, password: p) {
+                                    try? PatchKeyStore.store(unlocked.contentKey, for: item.summary)
+                                    targetProject = unlocked.project
+                                    break
+                                }
+                            }
+                        }
+                    }
+                    guard let project = targetProject else {
+                        result = .unavailable("FAILED — UNABLE TO UNLOCK")
                         DispatchQueue.main.async {
-                            self.patchStore.requestUnlock(for: item)
-                            self.patchMessage = "ENTER PACKAGE PASSWORD"
+                            self.patchMessage = "CANNOT UNLOCK PACKAGE"
                             self.patchOperationBusy = false
                         }
                         return
@@ -627,25 +644,11 @@ struct ContentView: View {
 }
 
 private enum PatchAudioFeedback {
-    private static let synthesizer = AVSpeechSynthesizer()
-    static func bypassActivated() { speak("Bypass ativado") }
-    static func originalRestored() { speak("Bypass desativado") }
-    private static func speak(_ message: String) {
-        let session = AVAudioSession.sharedInstance()
-        try? session.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
-        try? session.setActive(true, options: [])
-        synthesizer.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: message)
-        let voices = AVSpeechSynthesisVoice.speechVoices()
-        utterance.voice = voices.first(where: {
-            ($0.language.hasPrefix("pt-BR") || $0.language.hasPrefix("pt-PT") || $0.language.hasPrefix("pt")) && $0.gender == .female && $0.quality == .enhanced
-        }) ?? voices.first(where: {
-            $0.language.hasPrefix("pt-BR") || $0.language.hasPrefix("pt-PT") || $0.language.hasPrefix("pt")
-        }) ?? AVSpeechSynthesisVoice(language: "pt-BR")
-        utterance.rate = 0.43
-        utterance.pitchMultiplier = 1.10
-        utterance.volume = 0.90
-        synthesizer.speak(utterance)
+    static func bypassActivated() {
+        // Audio sound removed per user request
+    }
+    static func originalRestored() {
+        // Audio sound removed per user request
     }
 }
 
