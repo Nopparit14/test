@@ -316,27 +316,50 @@ $pageTitles = [
         }
         .logout:hover { color: var(--bad); background: rgba(255, 93, 108, 0.12); }
 
-        /* Collapsed (desktop) */
-        html.sb-collapsed .sidebar { width: var(--sb-w-collapsed); }
-        html.sb-collapsed .brand-text,
-        html.sb-collapsed .nav-item span.t,
-        html.sb-collapsed .nav-item .count,
-        html.sb-collapsed .sb-label,
-        html.sb-collapsed .profile-info { opacity: 0; width: 0; pointer-events: none; }
-        html.sb-collapsed .sb-brand { padding: 0 19px; }
-        html.sb-collapsed .nav-item { padding: 0; justify-content: center; }
-        html.sb-collapsed .nav-item.active::before { left: -12px; }
-        html.sb-collapsed .profile { flex-direction: column; padding: 8px 0; background: none; }
-        html.sb-collapsed .sb-label { padding: 0; height: 8px; overflow: hidden; }
-        html.sb-collapsed .nav-item[data-tip]:hover::after {
-            content: attr(data-tip);
-            position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%);
-            background: #1a2438; color: #fff; padding: 6px 12px; border-radius: 9px;
-            font-size: 12px; font-weight: 600; white-space: nowrap;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, .5); border: 1px solid var(--line-2);
-            z-index: 200;
+        /* Collapsed (desktop only) */
+        @media (min-width: 961px) {
+            html.sb-collapsed .sidebar { width: var(--sb-w-collapsed); }
+            html.sb-collapsed .brand-text,
+            html.sb-collapsed .nav-item span.t,
+            html.sb-collapsed .nav-item .count,
+            html.sb-collapsed .profile-info { display: none; }
+
+            /* โลโก้อยู่กึ่งกลาง */
+            html.sb-collapsed .sb-brand { padding: 0; justify-content: center; gap: 0; }
+
+            /* เมนู: ปุ่มสี่เหลี่ยมจัตุรัส อยู่กึ่งกลาง */
+            html.sb-collapsed .sb-nav { padding: 16px 0; align-items: center; gap: 6px; overflow: visible; }
+            html.sb-collapsed .nav-item {
+                width: 50px; height: 50px; padding: 0; gap: 0;
+                justify-content: center; border-radius: 14px;
+            }
+            html.sb-collapsed .nav-item i { flex: none; font-size: 18px; }
+            html.sb-collapsed .nav-item.active::before { left: -15px; top: 13px; bottom: 13px; }
+
+            /* หัวข้อกลุ่มกลายเป็นเส้นคั่นบางๆ */
+            html.sb-collapsed .sb-label {
+                font-size: 0; width: 28px; height: 1px; padding: 0; margin: 8px 0;
+                background: var(--line-2);
+            }
+            html.sb-collapsed .sb-label:first-child { display: none; }
+
+            /* โปรไฟล์: avatar + ปุ่มออกจากระบบ เรียงแนวตั้ง */
+            html.sb-collapsed .sb-foot { padding: 14px 0; }
+            html.sb-collapsed .profile {
+                flex-direction: column; align-items: center; gap: 8px; padding: 0; background: none;
+            }
+            html.sb-collapsed .avatar { flex: none; width: 40px; height: 40px; }
+
+            /* Tooltip */
+            html.sb-collapsed .nav-item[data-tip]:hover::after {
+                content: attr(data-tip);
+                position: absolute; left: calc(100% + 14px); top: 50%; transform: translateY(-50%);
+                background: #1a2438; color: #fff; padding: 7px 13px; border-radius: 9px;
+                font-size: 12px; font-weight: 600; white-space: nowrap;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, .5); border: 1px solid var(--line-2);
+                z-index: 200; pointer-events: none;
+            }
         }
-        html.sb-collapsed .sb-nav { overflow: visible; }
 
         .overlay {
             position: fixed; inset: 0; background: rgba(3, 6, 12, 0.65);
@@ -566,13 +589,6 @@ $pageTitles = [
             html.sb-open .overlay { opacity: 1; visibility: visible; }
             html.sb-open body { overflow: hidden; }
             .main, html.sb-collapsed .main { margin-left: 0; }
-            /* ใน drawer แสดงข้อความเต็มเสมอ */
-            html.sb-collapsed .brand-text, html.sb-collapsed .nav-item span.t, html.sb-collapsed .nav-item .count,
-            html.sb-collapsed .sb-label, html.sb-collapsed .profile-info { opacity: 1; width: auto; pointer-events: auto; }
-            html.sb-collapsed .nav-item { padding: 0 14px; justify-content: flex-start; }
-            html.sb-collapsed .profile { flex-direction: row; padding: 8px; background: rgba(255, 255, 255, .03); }
-            html.sb-collapsed .sb-label { padding: 10px 14px 6px; height: auto; }
-            html.sb-collapsed .sb-brand { padding: 0 20px; }
             .topbar { padding: 12px 16px; }
             .content { padding: 18px 16px 40px; }
         }

@@ -13,8 +13,9 @@ require_once __DIR__ . '/config.php';
 
 $pdo = getDB();
 
-$inputJSON = file_get_contents('php://input');
-$input = json_decode($inputJSON, true) ?: $_REQUEST;
+$rawInput = file_get_contents('php://input');
+$jsonInput = !empty($rawInput) ? json_decode($rawInput, true) : null;
+$input = is_array($jsonInput) ? array_merge($_REQUEST, $jsonInput) : $_REQUEST;
 
 $action = $input['action'] ?? 'check';
 $key = trim($input['key'] ?? '');
@@ -29,9 +30,32 @@ function logActivity($pdo, $key, $action, $deviceId, $deviceName, $ip) {
     } catch (Exception $e) {}
 }
 
-if (empty($key)) {
-    echo json_encode(['status' => 'error', 'message' => 'License key is required.']);
+if ($action === 'ping') {
+    echo json_encode([
+        'status' => 'success',
+        'message' => 'API is online and reachable.',
+        'server_time' => date('Y-m-d H:i:s'),
+        'ip' => $clientIP
+    ]);
     exit;
+}
+
+if (empty($key)) {
+    if (!empty($deviceId)) {
+        // Check if this device UDID has an active license
+        $stmt = $pdo->prepare("SELECT * FROM `licenses` WHERE `device_id` = ? AND `status` = 'active' ORDER BY `id` DESC LIMIT 1");
+        $stmt->execute([$deviceId]);
+        $license = $stmt->fetch();
+        if ($license) {
+            $key = $license['license_key'];
+        } else {
+            echo json_encode(['status' => 'error', 'message' => 'UDID not registered. Please enter your license key.']);
+            exit;
+        }
+    } else {
+        echo json_encode(['status' => 'error', 'message' => 'License key or Device UDID is required.']);
+        exit;
+    }
 }
 
 // Find key in database
