@@ -7,7 +7,7 @@ import UIKit
 final class LicenseManager: ObservableObject {
     // 🌐 ตั้งค่า URL เซิร์ฟเวอร์ API ของคุณที่นี่
     // ตัวอย่าง: "http://your-server-ip/web_panel/api.php" หรือ "https://yourdomain.com/web_panel/api.php"
-    static var apiURL = "http://127.0.0.1/web_panel/api.php"
+    static var apiURL = "https://adminpanel.xsteam.store/api.php"
 
     @Published private(set) var expirationDate: String?
     @Published private(set) var daysLeft: Int?
