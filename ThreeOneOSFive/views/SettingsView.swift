@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appLanguage) private var language
     @EnvironmentObject private var appState: AppState
+    @EnvironmentObject private var licenseManager: LicenseManager
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
 
     var body: some View {
@@ -58,10 +59,21 @@ struct SettingsView: View {
                     .padding(.vertical, 2)
                 } header: {
                     Text(language.text("settings.verified_versions"))
-                } footer: {
-                    Text(language.text("settings.supported_versions_footer"))
                 }
 
+                Section("License Management") {
+                    Button(role: .destructive) {
+                        licenseManager.deactivate()
+                        dismiss()
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right.fill")
+                            Text("Logout & Enter New Key")
+                        }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.red)
+                    }
+                }
             }
             .tint(AppTheme.accent)
             .scrollContentBackground(.hidden)

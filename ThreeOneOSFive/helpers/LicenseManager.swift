@@ -22,13 +22,7 @@ final class LicenseManager: ObservableObject {
     private var lastAttemptAt: Date?
 
     init() {
-        isActive = hasRememberedKey
-        if isActive {
-            // Check key on launch
-            if let saved = rememberedKey() {
-                validateOnline(key: saved, isSilent: true)
-            }
-        }
+        isActive = false
     }
 
     var hasRememberedKey: Bool {
@@ -36,8 +30,8 @@ final class LicenseManager: ObservableObject {
     }
 
     func beginLaunchSession() {
-        isActive = hasRememberedKey
-        message = isActive ? "Ready to use" : "Key required — enter your license key"
+        isActive = false
+        message = "Enter your license key"
     }
 
     func activate(key: String) {
