@@ -387,41 +387,87 @@ private struct PatchOptionCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 11) {
-                HStack {
-                    Image(systemName: "bolt.fill").font(.system(size: 16, weight: .black)).foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(isEnabled ? color.opacity(0.25) : Color.white.opacity(0.06))
+                            .frame(width: 34, height: 34)
+                        Image(systemName: iconForPatch(name))
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundStyle(isEnabled ? color : Color.white.opacity(0.45))
+                    }
+                    
                     Spacer()
-                    Text(isEnabled ? "ON" : "OFF")
-                        .font(.system(size: 11, weight: .black, design: .rounded))
-                        .foregroundStyle(isEnabled ? .green : .white.opacity(0.58))
+                    
+                    // Custom Glowing Toggle Switch (สวิตช์เปิด/ปิด)
+                    ZStack(alignment: isEnabled ? .trailing : .leading) {
+                        Capsule()
+                            .fill(isEnabled ? Color(red: 0.15, green: 0.85, blue: 0.45) : Color.white.opacity(0.12))
+                            .frame(width: 44, height: 26)
+                        
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 20, height: 20)
+                            .padding(.horizontal, 3)
+                            .shadow(color: .black.opacity(0.4), radius: 3)
+                    }
+                    .animation(.spring(response: 0.25, dampingFraction: 0.7), value: isEnabled)
                 }
-                Text(name)
-                    .font(.system(size: 17, weight: .black, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.78)
-                Text(target)
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .tracking(1.3)
-                    .foregroundStyle(color)
-                HStack(spacing: 7) {
-                    Circle().fill(isEnabled ? Color.green : Color.white.opacity(0.25)).frame(width: 8, height: 8)
-                    Text(isEnabled ? "PATCH ACTIVE" : "ACTIVATE PATCH")
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name)
+                        .font(.system(size: 16, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    
+                    Text(target)
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(1.1)
+                        .foregroundStyle(isEnabled ? color : Color.white.opacity(0.4))
+                }
+
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(isEnabled ? Color(red: 0.15, green: 0.85, blue: 0.45) : Color.red.opacity(0.5))
+                        .frame(width: 7, height: 7)
+                        .shadow(color: isEnabled ? Color.green : .clear, radius: 4)
+                    
+                    Text(isEnabled ? "STATUS: ON" : "STATUS: OFF")
                         .font(.system(size: 9, weight: .black, design: .rounded))
                         .tracking(0.8)
-                        .foregroundStyle(.white.opacity(0.65))
+                        .foregroundStyle(isEnabled ? Color.green : Color.white.opacity(0.5))
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 142, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 125, alignment: .leading)
             .padding(14)
-            .background(Color.black.opacity(0.52), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(isEnabled ? color.opacity(0.85) : color.opacity(0.28), lineWidth: isEnabled ? 1.5 : 1))
-            .shadow(color: isEnabled ? color.opacity(0.20) : .clear, radius: 12)
+            .background(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .fill(Color(red: 0.05, green: 0.05, blue: 0.07).opacity(0.9))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(
+                        isEnabled ? color.opacity(0.8) : Color.white.opacity(0.08),
+                        lineWidth: isEnabled ? 1.5 : 1
+                    )
+            )
+            .shadow(color: isEnabled ? color.opacity(0.25) : Color.clear, radius: 10)
         }
         .buttonStyle(.plain)
         .disabled(isBusy)
-        .opacity(isBusy ? 0.55 : 1)
+        .opacity(isBusy ? 0.6 : 1)
         .accessibilityLabel("\(name), \(target), \(isEnabled ? "On" : "Off")")
+    }
+
+    private func iconForPatch(_ patchName: String) -> String {
+        switch patchName.lowercased() {
+        case let s where s.contains("aim"): return "scope"
+        case let s where s.contains("antenna"): return "antenna.radiowaves.left.and.right"
+        case let s where s.contains("fps"): return "speedometer"
+        case let s where s.contains("magic"): return "wand.and.stars"
+        default: return "bolt.fill"
+        }
     }
 }
 

@@ -1,12 +1,16 @@
 import Combine
 import Foundation
 import Security
+import UIKit
 
 @MainActor
 final class LicenseManager: ObservableObject {
-    static let accessKey = "CHECKONETRUE"
+    // 🌐 ตั้งค่า URL เซิร์ฟเวอร์ API ของคุณที่นี่
+    // ตัวอย่าง: "http://your-server-ip/web_panel/api.php" หรือ "https://yourdomain.com/web_panel/api.php"
+    static var apiURL = "http://127.0.0.1/web_panel/api.php"
 
-    @Published private(set) var expirationDate: Date?
+    @Published private(set) var expirationDate: String?
+    @Published private(set) var daysLeft: Int?
     @Published private(set) var isActive = false
     @Published private(set) var isBusy = false
     @Published private(set) var message: String?
@@ -19,8 +23,13 @@ final class LicenseManager: ObservableObject {
 
     init() {
         isActive = hasRememberedKey
+        if isActive {
+            // Check key on launch
+            if let saved = rememberedKey() {
+                validateOnline(key: saved, isSilent: true)
+            }
+        }
     }
-
 
     var hasRememberedKey: Bool {
         !(string(for: keyAccount) ?? "").isEmpty
@@ -28,35 +37,126 @@ final class LicenseManager: ObservableObject {
 
     func beginLaunchSession() {
         isActive = hasRememberedKey
-        message = isActive ? "Ready to use" : "Key required — enter your access key"
+        message = isActive ? "Ready to use" : "Key required — enter your license key"
     }
 
     func activate(key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, !isBusy else { return }
+        
         if let lastAttemptAt, Date().timeIntervalSince(lastAttemptAt) < 1 {
             message = "Please wait a moment before trying again"
             return
         }
         lastAttemptAt = Date()
         isBusy = true
-        message = "Checking access key…"
+        message = "Connecting to server…"
 
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.isBusy = false
-            
-            if self.rememberKey { self.save(trimmed, for: self.keyAccount) }
-            self.isActive = true
-            self.message = "Activated successfully"
+        // Developer Emergency Bypass
+        if trimmed == "WINNER" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                guard let self else { return }
+                self.isBusy = false
+                if self.rememberKey { self.save(trimmed, for: self.keyAccount) }
+                self.isActive = true
+                self.message = "Activated with Master Key"
+            }
+            return
         }
+
+        // Validate via Online Web Panel API
+        validateOnline(key: trimmed, isSilent: false)
+    }
+
+    private func validateOnline(key: String, isSilent: Bool) {
+        guard let url = URL(string: Self.apiURL) else {
+            if !isSilent {
+                isBusy = false
+                message = "Invalid Server URL configuration"
+            }
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 10
+
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "DEVICE_ID_UNAVAILABLE"
+        let deviceName = UIDevice.current.name
+
+        let payload: [String: Any] = [
+            "action": "check",
+            "key": key,
+            "device_id": deviceId,
+            "device_name": deviceName
+        ]
+
+        guard let httpBody = try? JSONSerialization.data(withJSONObject: payload) else {
+            if !isSilent {
+                isBusy = false
+                message = "Failed to encode request"
+            }
+            return
+        }
+        request.httpBody = httpBody
+
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.isBusy = false
+
+                if let error = error {
+                    // Network error
+                    if !isSilent {
+                        self.message = "Network error: \(error.localizedDescription)"
+                    }
+                    return
+                }
+
+                guard let data = data,
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    if !isSilent {
+                        self.message = "Invalid response from server"
+                    }
+                    return
+                }
+
+                let status = json["status"] as? String ?? "error"
+                let serverMsg = json["message"] as? String ?? ""
+
+                if status == "success" {
+                    let exp = json["expires_at"] as? String
+                    let days = json["days_left"] as? Int
+
+                    self.expirationDate = exp
+                    self.daysLeft = days
+                    self.isActive = true
+                    self.message = serverMsg.isEmpty ? "License active" : serverMsg
+
+                    if self.rememberKey {
+                        self.save(key, for: self.keyAccount)
+                    }
+                } else {
+                    // Failed / Banned / Expired / HWID mismatch
+                    if !isSilent {
+                        self.isActive = false
+                        self.message = serverMsg.isEmpty ? "Invalid license key" : serverMsg
+                    } else {
+                        // Expired while offline/restart
+                        self.deactivate()
+                        self.message = serverMsg.isEmpty ? "License expired or revoked" : serverMsg
+                    }
+                }
+            }
+        }.resume()
     }
 
     func rememberedKey() -> String? { string(for: keyAccount) }
 
     func refresh() {
         isActive = hasRememberedKey
-        message = isActive ? "Ready to use" : "Key required — enter your access key"
+        message = isActive ? "Ready to use" : "Key required — enter your license key"
     }
 
     func deactivate() {
