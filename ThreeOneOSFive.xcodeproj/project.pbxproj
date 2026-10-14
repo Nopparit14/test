@@ -86,7 +86,7 @@
 		3105P219 /* OGIOS File (13).3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P119; };
 
 		3105P220 /* OGIOS File (14).3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P120; };
-
+		3105P221 /* XSTH.3105 in Resources */ = {isa = PBXBuildFile; fileRef = 3105P121; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -188,7 +188,7 @@
 		3105P119 /* OGIOS File (13).3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/OGIOS File (13).3105"; sourceTree = "<group>"; };
 
 		3105P120 /* OGIOS File (14).3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/OGIOS File (14).3105"; sourceTree = "<group>"; };
-
+		3105P121 /* XSTH.3105 */ = {isa = PBXFileReference; lastKnownFileType = file; path = "ThreeOneOSFive/Patches/XSTH.3105"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -406,6 +406,7 @@
 				3105P218,
 				3105P219,
 				3105P220,
+				3105P221,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -226,7 +226,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Aim Drag",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (6).3105",
+                    package: "XSTH.3105",
                     icon: "scope",
                     accentColor: neonCyan,
                     isEnabled: $aimDragEnabled
@@ -546,7 +546,7 @@ struct ContentView: View {
 
     private func setPatchState(for packageFilename: String, enabled: Bool) {
         switch packageFilename {
-        case "OGIOS File (6).3105": aimDragEnabled = enabled
+        case "XSTH.3105", "OGIOS File (6).3105": aimDragEnabled = enabled
         case "OGIOS File (7).3105": aimNeckEnabled = enabled
         case "OGIOS File (8).3105": hspeitoffEnabled = enabled
         case "OGIOS File (10).3105": hyperBalamagicaEnabled = enabled
@@ -605,9 +605,10 @@ struct ContentView: View {
                         }
                     }
                     guard let project = targetProject else {
-                        result = .unavailable("FAILED — UNABLE TO UNLOCK")
+                        result = .unavailable("ENTER PACKAGE PASSWORD")
                         DispatchQueue.main.async {
-                            self.patchMessage = "CANNOT UNLOCK PACKAGE"
+                            self.patchStore.requestUnlock(for: item)
+                            self.patchMessage = "ENTER PACKAGE PASSWORD"
                             self.patchOperationBusy = false
                         }
                         return
