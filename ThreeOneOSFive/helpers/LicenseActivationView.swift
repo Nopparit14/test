@@ -164,28 +164,38 @@ struct LicenseActivationView: View {
                     .frame(width: 86, height: 86)
                     .blur(radius: 14)
 
-                // High-Tech Gradient Disc
-                Circle()
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(red: 0.08, green: 0.16, blue: 0.32), Color(red: 0.02, green: 0.05, blue: 0.12)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                if let uiImage = UIImage(named: "AppLogo") {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 76, height: 76)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(neonCyan.opacity(0.85), lineWidth: 2))
+                        .shadow(color: neonCyan.opacity(0.4), radius: 10)
+                } else {
+                    // High-Tech Gradient Disc
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(red: 0.08, green: 0.16, blue: 0.32), Color(red: 0.02, green: 0.05, blue: 0.12)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                    )
-                    .frame(width: 76, height: 76)
-                    .overlay(Circle().stroke(neonCyan.opacity(0.7), lineWidth: 1.5))
+                        .frame(width: 76, height: 76)
+                        .overlay(Circle().stroke(neonCyan.opacity(0.7), lineWidth: 1.5))
 
-                // Shield Icon with Neon Gradient
-                Image(systemName: "shield.checkered")
-                    .font(.system(size: 34, weight: .black))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, neonCyan],
-                            startPoint: .top,
-                            endPoint: .bottom
+                    // Shield Icon with Neon Gradient
+                    Image(systemName: "checkerboard.shield")
+                        .font(.system(size: 34, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.white, neonCyan],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
+                }
             }
             .padding(.bottom, 2)
 

@@ -81,20 +81,29 @@ struct ContentView: View {
                     .frame(width: 48, height: 48)
                     .blur(radius: 6)
 
-                Circle()
-                    .fill(Color(red: 0.08, green: 0.09, blue: 0.12))
-                    .frame(width: 44, height: 44)
-                    .overlay(Circle().stroke(Color(red: 0.85, green: 0.1, blue: 0.2).opacity(0.6), lineWidth: 1.5))
+                if let logo = UIImage(named: "AppLogo") {
+                    Image(uiImage: logo)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 44, height: 44)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color(red: 0.85, green: 0.1, blue: 0.2).opacity(0.8), lineWidth: 1.5))
+                } else {
+                    Circle()
+                        .fill(Color(red: 0.08, green: 0.09, blue: 0.12))
+                        .frame(width: 44, height: 44)
+                        .overlay(Circle().stroke(Color(red: 0.85, green: 0.1, blue: 0.2).opacity(0.6), lineWidth: 1.5))
 
-                Image(systemName: "shield.checkered")
-                    .font(.system(size: 20, weight: .black))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [.white, Color(red: 0.95, green: 0.25, blue: 0.35)],
-                            startPoint: .top,
-                            endPoint: .bottom
+                    Image(systemName: "checkerboard.shield")
+                        .font(.system(size: 20, weight: .black))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.white, Color(red: 0.95, green: 0.25, blue: 0.35)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
                         )
-                    )
+                }
             }
 
             VStack(alignment: .leading, spacing: 2) {
