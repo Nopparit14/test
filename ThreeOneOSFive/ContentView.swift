@@ -21,6 +21,11 @@ struct ContentView: View {
     @State private var aimChestPackageEnabled = false
     @State private var magicEnabled = false
 
+    // Cyber Blue & Neon Cyan Palette
+    private let neonCyan = Color(red: 0.0, green: 0.85, blue: 1.0)
+    private let electricBlue = Color(red: 0.0, green: 0.48, blue: 1.0)
+    private let deepBlue = Color(red: 0.02, green: 0.22, blue: 0.65)
+
     var body: some View {
         ZStack {
             // Background: OLED Black with subtle Cyber Aura
@@ -28,8 +33,8 @@ struct ContentView: View {
 
             RadialGradient(
                 gradient: Gradient(colors: [
-                    Color(red: 0.75, green: 0.05, blue: 0.15).opacity(0.16),
-                    Color(red: 0.05, green: 0.05, blue: 0.08).opacity(0.95),
+                    electricBlue.opacity(0.22),
+                    Color(red: 0.01, green: 0.04, blue: 0.12).opacity(0.95),
                     Color.black
                 ]),
                 center: .top,
@@ -77,7 +82,7 @@ struct ContentView: View {
         HStack(spacing: 14) {
             ZStack {
                 Circle()
-                    .fill(Color(red: 0.85, green: 0.1, blue: 0.2).opacity(0.25))
+                    .fill(electricBlue.opacity(0.35))
                     .frame(width: 48, height: 48)
                     .blur(radius: 6)
 
@@ -87,18 +92,18 @@ struct ContentView: View {
                         .aspectRatio(contentMode: .fill)
                         .frame(width: 44, height: 44)
                         .clipShape(Circle())
-                        .overlay(Circle().stroke(Color(red: 0.85, green: 0.1, blue: 0.2).opacity(0.8), lineWidth: 1.5))
+                        .overlay(Circle().stroke(neonCyan.opacity(0.85), lineWidth: 1.5))
                 } else {
                     Circle()
-                        .fill(Color(red: 0.08, green: 0.09, blue: 0.12))
+                        .fill(Color(red: 0.04, green: 0.08, blue: 0.16))
                         .frame(width: 44, height: 44)
-                        .overlay(Circle().stroke(Color(red: 0.85, green: 0.1, blue: 0.2).opacity(0.6), lineWidth: 1.5))
+                        .overlay(Circle().stroke(neonCyan.opacity(0.7), lineWidth: 1.5))
 
                     Image(systemName: "checkerboard.shield")
                         .font(.system(size: 20, weight: .black))
                         .foregroundStyle(
                             LinearGradient(
-                                colors: [.white, Color(red: 0.95, green: 0.25, blue: 0.35)],
+                                colors: [.white, neonCyan],
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
@@ -115,10 +120,11 @@ struct ContentView: View {
 
                     Text("PRO")
                         .font(.system(size: 9, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Color(red: 0.9, green: 0.2, blue: 0.3))
+                        .foregroundStyle(neonCyan)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color(red: 0.9, green: 0.2, blue: 0.3).opacity(0.18), in: Capsule())
+                        .background(electricBlue.opacity(0.22), in: Capsule())
+                        .overlay(Capsule().stroke(neonCyan.opacity(0.4), lineWidth: 0.8))
                 }
 
                 Text("CONTROL & INJECTION MENU")
@@ -196,13 +202,13 @@ struct ContentView: View {
                 Label("PATCH OPTIONS", systemImage: "slider.horizontal.3")
                     .font(.system(size: 13, weight: .black, design: .rounded))
                     .tracking(1.4)
-                    .foregroundStyle(Color(red: 0.95, green: 0.2, blue: 0.3))
+                    .foregroundStyle(neonCyan)
 
                 Spacer()
 
                 HStack(spacing: 5) {
                     Circle()
-                        .fill(patchOperationBusy ? Color.yellow : (patchMessage.localizedCaseInsensitiveContains("successful") ? Color.green : Color.white.opacity(0.4)))
+                        .fill(patchOperationBusy ? Color.yellow : (patchMessage.localizedCaseInsensitiveContains("successful") ? Color.green : neonCyan.opacity(0.8)))
                         .frame(width: 6, height: 6)
 
                     Text(patchOperationBusy ? "BUSY" : "LIVE")
@@ -222,7 +228,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (6).3105",
                     icon: "scope",
-                    accentColor: Color(red: 0.95, green: 0.22, blue: 0.32),
+                    accentColor: neonCyan,
                     isEnabled: $aimDragEnabled
                 )
 
@@ -231,7 +237,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (7).3105",
                     icon: "person.crop.circle.badge.checkmark",
-                    accentColor: Color(red: 0.95, green: 0.22, blue: 0.32),
+                    accentColor: Color(red: 0.1, green: 0.7, blue: 1.0),
                     isEnabled: $aimNeckEnabled
                 )
 
@@ -240,7 +246,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (8).3105",
                     icon: "antenna.radiowaves.left.and.right",
-                    accentColor: Color(red: 0.25, green: 0.72, blue: 1.0),
+                    accentColor: Color(red: 0.25, green: 0.75, blue: 1.0),
                     isEnabled: $hspeitoffEnabled
                 )
 
@@ -249,7 +255,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (10).3105",
                     icon: "speedometer",
-                    accentColor: Color(red: 0.2, green: 0.88, blue: 0.5),
+                    accentColor: Color(red: 0.2, green: 0.85, blue: 0.6),
                     isEnabled: $hyperBalamagicaEnabled
                 )
 
@@ -258,7 +264,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (12).3105",
                     icon: "figure.stand",
-                    accentColor: Color(red: 0.95, green: 0.22, blue: 0.32),
+                    accentColor: Color(red: 0.15, green: 0.65, blue: 1.0),
                     isEnabled: $aimBodyPackageEnabled
                 )
 
@@ -267,7 +273,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (2).3105",
                     icon: "shield.lefthalf.filled",
-                    accentColor: Color(red: 0.95, green: 0.22, blue: 0.32),
+                    accentColor: Color(red: 0.3, green: 0.75, blue: 1.0),
                     isEnabled: $aimChestPackageEnabled
                 )
 
@@ -276,7 +282,7 @@ struct ContentView: View {
                     target: "FREE FIRE • NORMAL",
                     package: "OGIOS File (14).3105",
                     icon: "wand.and.stars",
-                    accentColor: Color(red: 0.85, green: 0.35, blue: 1.0),
+                    accentColor: Color(red: 0.4, green: 0.6, blue: 1.0),
                     isEnabled: $magicEnabled
                 )
             }
@@ -287,7 +293,7 @@ struct ContentView: View {
                     ProgressView().tint(.white).scaleEffect(0.7)
                 } else {
                     Circle()
-                        .fill(patchMessage.localizedCaseInsensitiveContains("successful") ? Color.green : Color(red: 0.9, green: 0.2, blue: 0.3))
+                        .fill(patchMessage.localizedCaseInsensitiveContains("successful") ? Color.green : neonCyan)
                         .frame(width: 8, height: 8)
                 }
 
@@ -395,7 +401,7 @@ struct ContentView: View {
             Label("LAUNCH GAME", systemImage: "gamecontroller.fill")
                 .font(.system(size: 13, weight: .black, design: .rounded))
                 .tracking(1.4)
-                .foregroundStyle(Color(red: 0.95, green: 0.2, blue: 0.3))
+                .foregroundStyle(neonCyan)
                 .padding(.horizontal, 2)
 
             HStack(spacing: 12) {
@@ -406,7 +412,7 @@ struct ContentView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.up.right.square.fill")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(Color(red: 0.95, green: 0.2, blue: 0.3))
+                            .foregroundStyle(neonCyan)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text("FREE FIRE")
@@ -421,7 +427,7 @@ struct ContentView: View {
                     }
                     .padding(14)
                     .background(Color(red: 0.06, green: 0.07, blue: 0.09), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(red: 0.95, green: 0.2, blue: 0.3).opacity(0.4), lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(electricBlue.opacity(0.4), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
 
@@ -465,7 +471,7 @@ struct ContentView: View {
             Spacer()
             Text("v1.2.0")
                 .font(.system(size: 9, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color(red: 0.9, green: 0.2, blue: 0.3))
+                .foregroundStyle(neonCyan)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -493,8 +499,8 @@ struct ContentView: View {
                 .foregroundStyle(.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
-                .background(Color(red: 0.9, green: 0.2, blue: 0.3).opacity(0.2), in: Capsule())
-                .overlay(Capsule().stroke(Color(red: 0.9, green: 0.2, blue: 0.3).opacity(0.4), lineWidth: 1))
+                .background(electricBlue.opacity(0.2), in: Capsule())
+                .overlay(Capsule().stroke(neonCyan.opacity(0.4), lineWidth: 1))
             }
             .buttonStyle(.plain)
         }
