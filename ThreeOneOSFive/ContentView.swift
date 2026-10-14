@@ -50,7 +50,6 @@ struct ContentView: View {
                     patchOptionsSection
                     gameLaunchPanel
                     footerStatus
-                    developerCredits
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
@@ -479,33 +478,6 @@ struct ContentView: View {
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
     }
 
-    // MARK: - Developer Credits
-    private var developerCredits: some View {
-        VStack(spacing: 8) {
-            Text("Developed by XSTEAM TEAM")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.55))
-
-            Button {
-                if let url = URL(string: "https://t.me/ogios1") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "paperplane.fill")
-                    Text("Official Telegram @ogios1")
-                }
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(electricBlue.opacity(0.2), in: Capsule())
-                .overlay(Capsule().stroke(neonCyan.opacity(0.4), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.top, 4)
-    }
 
     // MARK: - Logic
     private func syncPatchStates() {

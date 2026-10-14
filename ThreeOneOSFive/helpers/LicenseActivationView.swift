@@ -75,9 +75,6 @@ struct LicenseActivationView: View {
 
                                 // Interactive API Check Section (เช็ค API ด้วย)
                                 apiHealthDiagnosticRow
-
-                                // Support Links (Telegram & Get License)
-                                supportLinks
                             }
                             .padding(22)
                             .background(
@@ -573,43 +570,6 @@ struct LicenseActivationView: View {
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color.white.opacity(0.06), lineWidth: 1))
     }
 
-    // MARK: - 9. Support Links (Electric Blue Style)
-    private var supportLinks: some View {
-        HStack(spacing: 12) {
-            Button {
-                if let url = URL(string: "https://t.me/ogios1") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "paperplane.fill")
-                    Text("Telegram Channel")
-                }
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.75))
-                .frame(maxWidth: .infinity, minHeight: 38)
-                .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                if let url = URL(string: "https://t.me/ogios1") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "cart.fill")
-                    Text("Get License")
-                }
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .foregroundStyle(neonCyan)
-                .frame(maxWidth: .infinity, minHeight: 38)
-                .background(electricBlue.opacity(0.18), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(neonCyan.opacity(0.35), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-        }
-    }
 
     // MARK: - 10. Footer Section
     private var footerSection: some View {
