@@ -1,9 +1,9 @@
 <?php
 // Database configuration
 define('DB_HOST', 'localhost');
-define('DB_USER', 't8tjxsteamst_adminpanel');
-define('DB_PASS', 'dTEq9n5BxenzAh8eQGGx');
-define('DB_NAME', 't8tjxsteamst_adminpanel');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_NAME', 'ogios_license');
 
 // Security key for hashing or extra API validation
 define('API_SECRET', 'OGIOS_SECRET_SALT_2026');
