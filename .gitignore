@@ -1,4 +1,4 @@
-﻿.antigravity/
+.antigravity/
 .cache/
 .gemini/
 .claude/
@@ -8,3 +8,6 @@
 node_modules/
 *.xcarchive
 *.ipa
+*.zip
+*.log
+auto_push_output.txt

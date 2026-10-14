@@ -108,7 +108,7 @@ Write-Host "Re-normalizing and staging files..."
 & git -C $workdir add .gitattributes .gitignore
 
 $staged = (& git -C $workdir diff --cached --name-only)
-if (-not $staged) {
+if ([string]::IsNullOrWhiteSpace($staged)) {
     Write-Host "No changes staged. Adding placeholder .gitkeep to allow initial commit..."
     $keep = Join-Path $workdir '.gitkeep'
     if (-not (Test-Path $keep)) { New-Item -Path $keep -ItemType File -Force | Out-Null }

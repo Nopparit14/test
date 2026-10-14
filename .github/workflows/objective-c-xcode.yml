@@ -1,6 +1,10 @@
 name: Build unsigned IPA
 
 on:
+  push:
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
       bundle_id:
@@ -20,20 +24,22 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     runs-on: macos-15
     timeout-minutes: 30
+    env:
+      BUNDLE_ID: ${{ inputs.bundle_id || 'com.apple.mobile.MobileHouseArrest' }}
+      PROJECT_NAME: ${{ inputs.project_name || 'OGIOS' }}
+      INPUT_SCHEME: ${{ inputs.scheme || 'OGIOS' }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Locate Xcode project
         id: locate
-        env:
-          INPUT_SCHEME: ${{ inputs.scheme }}
         run: |
           set -euo pipefail
           ROOT="$GITHUB_WORKSPACE"
@@ -61,7 +67,6 @@ jobs:
           PROJECT: ${{ steps.locate.outputs.project }}
           WORKSPACE: ${{ steps.locate.outputs.workspace }}
           SCHEME: ${{ steps.locate.outputs.scheme }}
-          BUNDLE_ID: ${{ inputs.bundle_id }}
         run: |
           set -euo pipefail
           ARCHIVE="$RUNNER_TEMP/App.xcarchive"
@@ -72,45 +77,70 @@ jobs:
           fi
 
       - name: Package IPA
-        env:
-          IPA_NAME: ${{ inputs.project_name }}
         run: |
           set -euo pipefail
           APP_PATH=$(find "$RUNNER_TEMP/App.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -type d -print -quit)
           [ -n "$APP_PATH" ] || { echo 'No .app was produced by xcodebuild.' >&2; exit 1; }
+          
+          # Move patches if exists
+          PATCH_DIR="$APP_PATH/Patches"
+          mkdir -p "$PATCH_DIR"
+          for package in "$APP_PATH"/*.3105; do
+            [ -e "$package" ] || continue
+            mv "$package" "$PATCH_DIR/"
+          done
+          
+          /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable OGIOS" "$APP_PATH/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType APPL" "$APP_PATH/Info.plist" || true
+
           mkdir -p "$RUNNER_TEMP/Payload"
           cp -R "$APP_PATH" "$RUNNER_TEMP/Payload/"
-          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/Payload" "$RUNNER_TEMP/${IPA_NAME}.ipa"
-          test -s "$RUNNER_TEMP/${IPA_NAME}.ipa"
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/Payload" "$RUNNER_TEMP/${PROJECT_NAME}.ipa"
+          test -s "$RUNNER_TEMP/${PROJECT_NAME}.ipa"
 
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project_name }}-unsigned-ipa
-          path: ${{ runner.temp }}/${{ inputs.project_name }}.ipa
-          retention-days: 7
+          name: ${{ env.PROJECT_NAME }}-unsigned-ipa
+          path: ${{ runner.temp }}/${{ env.PROJECT_NAME }}.ipa
+          retention-days: 14
 
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ inputs.project_name }}-build-log
+          name: ${{ env.PROJECT_NAME }}-build-log
           path: ${{ runner.temp }}/xcodebuild.log
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14
+
+      - name: Create or Update GitHub Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        continue-on-error: true
+        with:
+          tag_name: latest
+          name: "OGIOS Latest Build (Auto-Release)"
+          body: |
+            Automated IPA build from commit `${{ github.sha }}`.
+            - Scheme: `${{ steps.locate.outputs.scheme }}`
+            - Bundle ID: `${{ env.BUNDLE_ID }}`
+          files: ${{ runner.temp }}/${{ env.PROJECT_NAME }}.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Write build summary
         if: always()
         run: |
           {
-            echo "### IPA build"
-            echo "Project: ${{ inputs.project_name }}"
-            echo "Bundle ID: ${{ inputs.bundle_id }}"
-            echo "Scheme: ${{ inputs.scheme }}"
-            echo "Source: repository checkout"
-            echo "Signing: disabled"
+            echo "### IPA Build Completed"
+            echo "Project: $PROJECT_NAME"
+            echo "Bundle ID: $BUNDLE_ID"
+            echo "Scheme: ${{ steps.locate.outputs.scheme }}"
+            echo "Signing: disabled (unsigned IPA)"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Clean up
         if: always()
         run: rm -rf "$RUNNER_TEMP/Payload" "$RUNNER_TEMP/App.xcarchive"
+
