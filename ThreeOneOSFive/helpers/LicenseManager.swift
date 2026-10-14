@@ -47,8 +47,8 @@ final class LicenseManager: ObservableObject {
         message = "Connecting to server…"
 
         // Developer Emergency Bypass
-        if trimmed == "WINNER" {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+        if trimmed.uppercased() == "WINNER" {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
                 guard let self else { return }
                 self.isBusy = false
                 if self.rememberKey { self.save(trimmed, for: self.keyAccount) }
@@ -71,16 +71,17 @@ final class LicenseManager: ObservableObject {
             return
         }
 
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "DEVICE_ID_UNAVAILABLE"
+        let deviceName = UIDevice.current.name
+
+        // Attempt 1: POST request with JSON
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_16 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        request.timeoutInterval = 15
-
-        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? "DEVICE_ID_UNAVAILABLE"
-        let deviceName = UIDevice.current.name
+        request.timeoutInterval = 12
 
         let payload: [String: Any] = [
             "action": "check",
@@ -99,67 +100,97 @@ final class LicenseManager: ObservableObject {
         request.httpBody = httpBody
 
         let config = URLSessionConfiguration.default
-        config.waitsForConnectivity = true
-        config.timeoutIntervalForRequest = 15
-        config.timeoutIntervalForResource = 30
+        config.timeoutIntervalForRequest = 12
+        config.timeoutIntervalForResource = 20
         let session = URLSession(configuration: config)
 
         session.dataTask(with: request) { [weak self] data, response, error in
             DispatchQueue.main.async {
                 guard let self else { return }
+
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    self.processServerResponse(json: json, key: key, isSilent: isSilent)
+                    return
+                }
+
+                // If POST failed or got network error, attempt GET query fallback
+                self.validateOnlineGETFallback(url: url, key: key, deviceId: deviceId, deviceName: deviceName, isSilent: isSilent, postError: error)
+            }
+        }.resume()
+    }
+
+    private func validateOnlineGETFallback(url: URL, key: String, deviceId: String, deviceName: String, isSilent: Bool, postError: Error?) {
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "action", value: "check"),
+            URLQueryItem(name: "key", value: key),
+            URLQueryItem(name: "device_id", value: deviceId),
+            URLQueryItem(name: "device_name", value: deviceName)
+        ]
+
+        guard let getURL = components?.url else {
+            self.isBusy = false
+            if !isSilent {
+                self.message = "Network error: \(postError?.localizedDescription ?? "Cannot connect")"
+            }
+            return
+        }
+
+        var getReq = URLRequest(url: getURL)
+        getReq.httpMethod = "GET"
+        getReq.setValue("application/json", forHTTPHeaderField: "Accept")
+        getReq.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_7_16 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148", forHTTPHeaderField: "User-Agent")
+        getReq.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        getReq.timeoutInterval = 12
+
+        URLSession.shared.dataTask(with: getReq) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
                 self.isBusy = false
 
-                if let error = error {
-                    // Network error
-                    if !isSilent {
-                        self.message = "Network error: \(error.localizedDescription)"
-                    }
+                if let data = data,
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    self.processServerResponse(json: json, key: key, isSilent: isSilent)
                     return
                 }
 
-                if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                    if !isSilent {
-                        self.message = "Server error (HTTP \(http.statusCode))"
-                    }
-                    return
-                }
-
-                guard let data = data,
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                    if !isSilent {
-                        self.message = "Invalid response from server"
-                    }
-                    return
-                }
-
-                let status = json["status"] as? String ?? "error"
-                let serverMsg = json["message"] as? String ?? ""
-
-                if status == "success" {
-                    let exp = json["expires_at"] as? String
-                    let days = json["days_left"] as? Int
-
-                    self.expirationDate = exp
-                    self.daysLeft = days
-                    self.isActive = true
-                    self.message = serverMsg.isEmpty ? "License active" : serverMsg
-
-                    if self.rememberKey {
-                        self.save(key, for: self.keyAccount)
-                    }
-                } else {
-                    // Failed / Banned / Expired / HWID mismatch
-                    if !isSilent {
-                        self.isActive = false
-                        self.message = serverMsg.isEmpty ? "Invalid license key" : serverMsg
-                    } else {
-                        // Expired while offline/restart
-                        self.deactivate()
-                        self.message = serverMsg.isEmpty ? "License expired or revoked" : serverMsg
-                    }
+                if !isSilent {
+                    let host = url.host ?? "server"
+                    let errDesc = error?.localizedDescription ?? postError?.localizedDescription ?? "Could not connect to host"
+                    self.message = "Network error [\(host)]: \(errDesc)"
                 }
             }
         }.resume()
+    }
+
+    private func processServerResponse(json: [String: Any], key: String, isSilent: Bool) {
+        self.isBusy = false
+        let status = json["status"] as? String ?? "error"
+        let serverMsg = json["message"] as? String ?? ""
+
+        if status == "success" {
+            let exp = json["expires_at"] as? String
+            let days = json["days_left"] as? Int
+
+            self.expirationDate = exp
+            self.daysLeft = days
+            self.isActive = true
+            self.message = serverMsg.isEmpty ? "License active" : serverMsg
+
+            if self.rememberKey {
+                self.save(key, for: self.keyAccount)
+            }
+        } else {
+            // Failed / Banned / Expired / HWID mismatch
+            if !isSilent {
+                self.isActive = false
+                self.message = serverMsg.isEmpty ? "Invalid license key" : serverMsg
+            } else {
+                self.deactivate()
+                self.message = serverMsg.isEmpty ? "License expired or revoked" : serverMsg
+            }
+        }
     }
 
     func rememberedKey() -> String? { string(for: keyAccount) }
