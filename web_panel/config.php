@@ -222,15 +222,9 @@ function sendSystemNotification($pdo, $title, $message, $type = 'info', $fields 
 
 function ensureCloudPatchesTable($pdo) {
     try {
-        // Create table if not exists (minimal schema for first-time setup)
+        // Create bare-minimum table (id only) — all columns added via ALTER migrations below
         $pdo->exec("CREATE TABLE IF NOT EXISTS `cloud_patches` (
-            `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            `patch_name` varchar(100) NOT NULL DEFAULT '',
-            `file_path` varchar(255) NOT NULL DEFAULT '',
-            `file_size` bigint(20) NOT NULL DEFAULT 0,
-            `file_hash` varchar(64) NOT NULL DEFAULT '',
-            `is_active` tinyint(1) NOT NULL DEFAULT 1,
-            `downloads_count` int(11) NOT NULL DEFAULT 0
+            `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
         // Fetch existing columns
@@ -242,11 +236,17 @@ function ensureCloudPatchesTable($pdo) {
             }
         }
 
-        // Add missing columns (ALTER TABLE ADD IF NOT EXISTS not supported in older MySQL)
+        // Add ALL columns that might be missing (handles any old schema)
         $migrations = [
-            'target_filename' => "ALTER TABLE `cloud_patches` ADD COLUMN `target_filename` varchar(100) NOT NULL DEFAULT '' AFTER `patch_name`",
-            'version'         => "ALTER TABLE `cloud_patches` ADD COLUMN `version` varchar(32) NOT NULL DEFAULT '1.0' AFTER `target_filename`",
-            'description'     => "ALTER TABLE `cloud_patches` ADD COLUMN `description` text DEFAULT NULL AFTER `file_hash`",
+            'patch_name'      => "ALTER TABLE `cloud_patches` ADD COLUMN `patch_name` varchar(100) NOT NULL DEFAULT ''",
+            'target_filename' => "ALTER TABLE `cloud_patches` ADD COLUMN `target_filename` varchar(100) NOT NULL DEFAULT ''",
+            'version'         => "ALTER TABLE `cloud_patches` ADD COLUMN `version` varchar(32) NOT NULL DEFAULT '1.0'",
+            'file_path'       => "ALTER TABLE `cloud_patches` ADD COLUMN `file_path` varchar(255) NOT NULL DEFAULT ''",
+            'file_size'       => "ALTER TABLE `cloud_patches` ADD COLUMN `file_size` bigint(20) NOT NULL DEFAULT 0",
+            'file_hash'       => "ALTER TABLE `cloud_patches` ADD COLUMN `file_hash` varchar(64) NOT NULL DEFAULT ''",
+            'description'     => "ALTER TABLE `cloud_patches` ADD COLUMN `description` text DEFAULT NULL",
+            'is_active'       => "ALTER TABLE `cloud_patches` ADD COLUMN `is_active` tinyint(1) NOT NULL DEFAULT 1",
+            'downloads_count' => "ALTER TABLE `cloud_patches` ADD COLUMN `downloads_count` int(11) NOT NULL DEFAULT 0",
             'created_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `created_at` datetime DEFAULT NULL",
             'updated_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `updated_at` datetime DEFAULT NULL",
         ];
