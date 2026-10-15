@@ -275,10 +275,24 @@ function ensureCloudPatchesTable($pdo) {
             }
         }
 
-        // Drop unique index on target_filename so every upload creates a new entry and never overwrites!
+        // Drop legacy unique indexes (like uniq_filename, uniq_target) so multiple patches can be added without duplicate errors
+        try {
+            $pdo->exec("ALTER TABLE `cloud_patches` DROP INDEX `uniq_filename`");
+        } catch (Throwable $eDropFn) {}
         try {
             $pdo->exec("ALTER TABLE `cloud_patches` DROP INDEX `uniq_target`");
-        } catch (Throwable $e3) {}
+        } catch (Throwable $eDropTg) {}
+
+        // Drop any other non-PRIMARY unique keys on cloud_patches
+        try {
+            $indexes = $pdo->query("SHOW INDEX FROM `cloud_patches` WHERE Non_unique = 0 AND Key_name != 'PRIMARY'")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($indexes as $idx) {
+                $kName = $idx['Key_name'] ?? '';
+                if (!empty($kName) && $kName !== 'PRIMARY') {
+                    try { $pdo->exec("ALTER TABLE `cloud_patches` DROP INDEX `{$kName}`"); } catch (Throwable $eD) {}
+                }
+            }
+        } catch (Throwable $eIdx) {}
 
     } catch (Throwable $e) {}
 }

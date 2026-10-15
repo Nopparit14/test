@@ -596,9 +596,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     // Always insert a new row! Never overwrites or deletes anything!
                     $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
-                        (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `is_active`, `created_at`, `updated_at`)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
-                    $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description, $unlockPassword]);
+                        (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `filename`, `storage_path`, `is_active`, `created_at`, `updated_at`)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
+                    $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description, $unlockPassword, $storageFilename, $relativeDbPath]);
 
                     sendSystemNotification($pdo, '☁️ อัปเดตสูตรใหม่ผ่าน Cloud OTA', 'แอดมินได้ทำการอัปโหลดสูตรใหม่ขึ้นเซิร์ฟเวอร์', 'ota', [
                         'ชื่อสูตร' => $patchName,
@@ -660,9 +660,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $tTarget = 'XSTH.3105';
 
                         $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
-                            (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `is_active`, `created_at`, `updated_at`)
-                            VALUES (?, ?, '1.0', ?, ?, ?, 'นำเข้าจากโฟลเดอร์ uploads/patches บนเซิร์ฟเวอร์', '', 1, NOW(), NOW())");
-                        $stmt->execute([$pName, $tTarget, $relPath, $fSize, $fHash]);
+                            (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `filename`, `storage_path`, `is_active`, `created_at`, `updated_at`)
+                            VALUES (?, ?, '1.0', ?, ?, ?, 'นำเข้าจากโฟลเดอร์ uploads/patches บนเซิร์ฟเวอร์', '', ?, ?, 1, NOW(), NOW())");
+                        $stmt->execute([$pName, $tTarget, $relPath, $fSize, $fHash, $f, $relPath]);
                         $imported++;
                     }
                 }
@@ -2241,6 +2241,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
           <table class="responsive">
             <thead>
               <tr>
+                
                 <th>ไฟล์เป้าหมาย (Target)</th>
                 <th>ชื่อสูตร &amp; เวอร์ชั่น</th>
                 <th>รหัสปลดล็อค</th>
