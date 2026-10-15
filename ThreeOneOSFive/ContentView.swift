@@ -71,13 +71,11 @@ struct ContentView: View {
         }
         .alert("Reset Acc", isPresented: $showResetConfirm) {
             Button("Reset", role: .destructive) {
-                licenseManager.deactivate()
-                UserDefaults.standard.removeObject(forKey: OnboardingStore.completedVersionKey)
-                UserDefaults.standard.removeObject(forKey: OnboardingStore.completedFingerprintKey)
+                resetAllPatches()
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("จะลบ License Key และรีเซ็ตบัญชี เครื่องนี้จะต้องใส่คีย์ใหม่")
+            Text("ปิดทุก patch ที่เปิดอยู่ และเรียกคืนไฟล์ XSTH.3105 กลับเป็นค่าเริ่มต้น")
         }
         .onAppear {
             licenseManager.fetchRemoteConfig()
@@ -569,7 +567,7 @@ struct ContentView: View {
                         .font(.system(size: 13, weight: .black, design: .rounded))
                         .foregroundStyle(Color.red.opacity(0.9))
 
-                    Text("Clear Key & Reset Account")
+                    Text("Restore All → XSTH.3105")
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundStyle(Color.red.opacity(0.45))
                 }
@@ -584,6 +582,80 @@ struct ContentView: View {
             .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.red.opacity(0.25), lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Reset All Patches to XSTH.3105
+    private func resetAllPatches() {
+        guard !patchOperationBusy else { return }
+        patchOperationBusy = true
+        patchMessage = "RESETTING — RESTORING ALL PATCHES…"
+
+        let activePatches: [(filename: String, binding: Binding<Bool>)] = [
+            ("XSTH (6).3105",  $aimDragEnabled),
+            ("XSTH (7).3105",  $aimNeckEnabled),
+            ("XSTH (8).3105",  $hspeitoffEnabled),
+            ("XSTH (10).3105", $hyperBalamagicaEnabled),
+            ("XSTH (12).3105", $aimBodyPackageEnabled),
+            ("XSTH (2).3105",  $aimChestPackageEnabled),
+            ("XSTH (14).3105", $magicEnabled),
+        ]
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            // 1. Restore (ปิด) ทุก patch ที่เปิดอยู่
+            for entry in activePatches {
+                if entry.binding.wrappedValue,
+                   let item = findPatchItem(for: entry.filename),
+                   let receipt = DevicePatchService.latestReceipt(projectID: item.id) {
+                    try? DevicePatchService.restore(receipt: receipt)
+                }
+            }
+
+            // 2. Apply XSTH.3105 (Master Bypass)
+            var applied = false
+            if let masterItem = findPatchItem(for: "XSTH.3105") {
+                var targetProject = masterItem.project
+                if targetProject == nil,
+                   let data = try? PatchProjectLibrary.readPackage(at: masterItem.packageURL) {
+                    let passwords = [PatchPackageCodec.bundledResourcePassword, "3105", "OGIOS", "XSTEAM"]
+                    for p in passwords {
+                        if let unlocked = try? PatchPackageCodec.decode(data, password: p) {
+                            try? PatchKeyStore.store(unlocked.contentKey, for: masterItem.summary)
+                            targetProject = unlocked.project
+                            break
+                        }
+                    }
+                }
+                if let project = targetProject {
+                    applied = (try? DevicePatchService.apply(project: project)) != nil
+                }
+            }
+
+            DispatchQueue.main.async {
+                // Reset toggle states
+                aimDragEnabled = false
+                aimNeckEnabled = false
+                hspeitoffEnabled = false
+                hyperBalamagicaEnabled = false
+                aimBodyPackageEnabled = false
+                aimChestPackageEnabled = false
+                magicEnabled = false
+
+                patchMessage = applied
+                    ? "RESET ACC — SYNCING OTA FROM SERVER…"
+                    : "RESET DONE — SYNCING OTA FROM SERVER…"
+                if applied { PatchAudioFeedback.bypassActivated() }
+
+                // 3. Sync Cloud OTA จากเว็บ — อัพเดทค่า patch ล่าสุดหลัง reset
+                cloudPatchManager.syncPatches { updatedCount in
+                    patchStore.reload()
+                    syncPatchStates()
+                    patchOperationBusy = false
+                    patchMessage = updatedCount > 0
+                        ? "RESET ACC COMPLETE — \(updatedCount) OTA PATCH(ES) UPDATED"
+                        : (applied ? "RESET ACC COMPLETE — XSTH.3105 APPLIED" : "RESET COMPLETE — ALL PATCHES RESTORED")
+                }
+            }
+        }
     }
 
     private func normalizePatchName(_ name: String) -> String {
