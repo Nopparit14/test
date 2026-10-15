@@ -997,8 +997,200 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
 .rc-banner .rc-txt b { display:block; font-size:15px; }
 .rc-banner .rc-txt span { font-size:12.5px; color:var(--muted); }
 textarea.input { height:auto; min-height:88px; padding:10px 14px; resize:vertical; line-height:1.5; font-family:inherit; }
-.rc-check { display:flex; align-items:center; gap:10px; margin-bottom:16px; font-size:13.5px; font-weight:600; cursor:pointer; }
-.rc-check input { width:18px; height:18px; accent-color:#fff; cursor:pointer; }
+
+/* ============ CYBER SWITCH CARDS ============ */
+.rc-switch-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  background: #09090b;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  transition: all .2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+.rc-switch-card:hover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.03);
+}
+.rc-switch-card.active {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(56, 189, 248, 0.06);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.1);
+}
+.rc-switch-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+}
+.rc-switch-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rc-switch-desc {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.cyber-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex-shrink: 0;
+}
+.cyber-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+.cyber-switch .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #1f1f23;
+  transition: .25s ease;
+  border-radius: 26px;
+  border: 1px solid #333338;
+}
+.cyber-switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #71717a;
+  transition: .25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.4);
+}
+.cyber-switch input:checked + .slider {
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.5);
+}
+.cyber-switch input:checked + .slider:before {
+  transform: translateX(20px);
+  background-color: #ffffff;
+}
+
+/* ============ PREMIUM FILE DROPZONE ============ */
+.file-dropzone {
+  position: relative;
+  border: 2px dashed #27272a;
+  border-radius: 12px;
+  padding: 24px 20px;
+  text-align: center;
+  background: #09090b;
+  cursor: pointer;
+  transition: all .2s ease;
+  overflow: hidden;
+}
+.file-dropzone:hover, .file-dropzone.dragover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.04);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.12);
+}
+.file-dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+.file-dropzone .dz-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 10px;
+  border-radius: 12px;
+  background: #141416;
+  border: 1px solid #28282c;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: #38bdf8;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.file-dropzone:hover .dz-icon {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
+  background: #0d1e2e;
+  border-color: #38bdf8;
+}
+.file-dropzone .dz-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+}
+.file-dropzone .dz-subtitle {
+  font-size: 12px;
+  color: #71717a;
+}
+.file-dropzone .dz-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #141416;
+  border: 1px solid #38bdf8;
+  border-radius: 8px;
+  color: #38bdf8;
+  font-weight: 600;
+  font-size: 13px;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+}
+.dz-file-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.15);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  color: #38bdf8;
+}
+.dz-file-info {
+  flex: 1;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+.dz-filename {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dz-filesize {
+  color: #71717a;
+  font-size: 11px;
+}
+.dz-change-btn {
+  font-size: 11.5px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 
 /* ============ INPUTS & FORMS ============ */
 .input {
@@ -1670,7 +1862,16 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
 
       <div class="card"><div class="card-head"><h3><i class="fa-solid fa-bullhorn"></i>ประกาศเข้าแอป (MOTD)</h3></div>
         <form method="POST" class="card-body"><input type="hidden" name="action" value="save_announcement">
-          <label class="rc-check"><input type="checkbox" name="announcement_enabled" value="1" <?= $sysSettings['announcement_enabled']==='1' ? 'checked' : '' ?>> แสดงประกาศในแอปลูกค้า</label>
+          <label class="rc-switch-card <?= $sysSettings['announcement_enabled']==='1' ? 'active' : '' ?>">
+            <div class="rc-switch-label">
+              <span class="rc-switch-title"><i class="fa-solid fa-bullhorn" style="color:#38bdf8"></i> แสดงประกาศในแอปลูกค้า (MOTD)</span>
+              <span class="rc-switch-desc">เปิดใช้งานเพื่อให้กล่องข้อความประกาศนี้เด้งแจ้งเตือนเมื่อลูกค้าเปิดแอป</span>
+            </div>
+            <div class="cyber-switch">
+              <input type="checkbox" name="announcement_enabled" value="1" <?= $sysSettings['announcement_enabled']==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
+              <span class="slider"></span>
+            </div>
+          </label>
           <div class="field"><label>หัวข้อ</label><input class="input" name="announcement_title" maxlength="120" value="<?= e($sysSettings['announcement_title']) ?>"></div>
           <div class="field"><label>ข้อความ</label><textarea name="announcement_message" class="input" maxlength="1000"><?= e($sysSettings['announcement_message']) ?></textarea></div>
           <div class="grid-2">
@@ -1681,7 +1882,16 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
 
       <div class="card"><div class="card-head"><h3><i class="fa-solid fa-cloud-arrow-down"></i>Force Update &amp; Version Control</h3></div>
         <form method="POST" class="card-body"><input type="hidden" name="action" value="save_version_control">
-          <label class="rc-check"><input type="checkbox" name="force_update_enabled" value="1" <?= $sysSettings['force_update_enabled']==='1' ? 'checked' : '' ?>> บังคับอัปเดต (เวอร์ชั่นเก่ากว่าด้านล่างจะใช้งานไม่ได้)</label>
+          <label class="rc-switch-card <?= $sysSettings['force_update_enabled']==='1' ? 'active' : '' ?>">
+            <div class="rc-switch-label">
+              <span class="rc-switch-title"><i class="fa-solid fa-triangle-exclamation" style="color:#eab308"></i> บังคับอัปเดตแอป (Force Update)</span>
+              <span class="rc-switch-desc">เวอร์ชั่นที่เก่ากว่าด้านล่างจะถูกล็อกและขึ้นปุ่มให้ดาวน์โหลดแอปใหม่</span>
+            </div>
+            <div class="cyber-switch">
+              <input type="checkbox" name="force_update_enabled" value="1" <?= $sysSettings['force_update_enabled']==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
+              <span class="slider"></span>
+            </div>
+          </label>
           <div class="field"><label>เวอร์ชั่นล่าสุด</label><input class="input" name="latest_app_version" placeholder="1.1.2" pattern="\d+(\.\d+){0,3}" value="<?= e($sysSettings['latest_app_version']) ?>" required></div>
           <div class="field"><label>ลิงก์ดาวน์โหลด .ipa</label><input class="input" name="update_download_url" placeholder="https://.../XSTEAM.ipa" value="<?= e($sysSettings['update_download_url']) ?>"></div>
           <div class="field"><label>รายละเอียดอัปเดต (Changelog)</label><textarea name="update_changelog" class="input" maxlength="1000"><?= e($sysSettings['update_changelog']) ?></textarea></div>
@@ -1753,7 +1963,22 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
 
           <div class="field">
             <label>เลือกไฟล์สูตร (.3105, .ogios, .dat)</label>
-            <input type="file" name="patch_file" class="input" accept=".3105,.ogios,.dat,.bin" required>
+            <div class="file-dropzone" id="fileDropzone">
+              <input type="file" name="patch_file" id="patchFileInput" accept=".3105,.ogios,.dat,.bin" required>
+              <div class="dz-content" id="dzDefault">
+                <div class="dz-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <div class="dz-title">คลิกเลือกไฟล์สูตร หรือลากไฟล์มาวางที่นี่</div>
+                <div class="dz-subtitle">รองรับไฟล์ .3105, .ogios, .dat, .bin (ขนาดไฟล์สูงสุด 50MB)</div>
+              </div>
+              <div class="dz-preview" id="dzPreview" style="display:none">
+                <div class="dz-file-badge"><i class="fa-solid fa-file-shield"></i></div>
+                <div class="dz-file-info">
+                  <span class="dz-filename" id="dzFilename">file.3105</span>
+                  <span class="dz-filesize" id="dzFilesize">0 KB</span>
+                </div>
+                <span class="dz-change-btn"><i class="fa-solid fa-arrow-rotate-right"></i> เปลี่ยนไฟล์</span>
+              </div>
+            </div>
           </div>
 
           <button class="btn btn-primary" style="width:100%"><i class="fa-solid fa-upload"></i> อัปโหลดและกระจายแพตช์ (Publish OTA)</button>
@@ -2103,6 +2328,46 @@ document.getElementById('confirmBtnAction').addEventListener('click', function()
     pendingFormToSubmit.submit();
   }
 });
+
+// Cloud OTA File Dropzone Interactive Preview
+(function() {
+  const patchInput = document.getElementById('patchFileInput');
+  const fileDropzone = document.getElementById('fileDropzone');
+  const dzDefault = document.getElementById('dzDefault');
+  const dzPreview = document.getElementById('dzPreview');
+  const dzFilename = document.getElementById('dzFilename');
+  const dzFilesize = document.getElementById('dzFilesize');
+  const targetInput = document.getElementById('targetFilenameInput');
+
+  if (patchInput && fileDropzone) {
+    ['dragenter', 'dragover'].forEach(name => {
+      fileDropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        fileDropzone.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      fileDropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        fileDropzone.classList.remove('dragover');
+      });
+    });
+
+    patchInput.addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+        const file = this.files[0];
+        dzFilename.textContent = file.name;
+        dzFilesize.textContent = (file.size / 1024).toFixed(1) + ' KB';
+        dzDefault.style.display = 'none';
+        dzPreview.style.display = 'flex';
+
+        if (targetInput && !targetInput.value.trim()) {
+          targetInput.value = file.name;
+        }
+      }
+    });
+  }
+})();
 </script>
 
 </body>
