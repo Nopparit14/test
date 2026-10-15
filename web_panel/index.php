@@ -89,7 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $pdo->commit();
                     $alert = "สร้างคีย์สำเร็จ {$count} รายการ! หักเครดิต {$count} เครดิต (คงเหลือ {$currentResellerCredits} เครดิต)";
-                } catch (Exception $e) {
+
+                    sendSystemNotification($pdo, '🏷️ ตัวแทนสร้างคีย์ใหม่', "ตัวแทนจำหน่ายได้ทำการตัดเครดิตและสร้างคีย์ใหม่สำเร็จ", 'reseller', [
+                        'ตัวแทน' => $currentDisplayName . " (@{$currentReseller['username']})",
+                        'จำนวนคีย์' => "{$count} คีย์ ({$duration} วัน)",
+                        'เครดิตคงเหลือ' => "{$currentResellerCredits} เครดิต",
+                        'โน้ต' => $note ?: '-',
+                        'ตัวอย่างคีย์' => $newlyGeneratedKeys[0] ?? '-'
+                    ]);
                     $pdo->rollBack();
                     $alert = "เกิดข้อผิดพลาดในการสร้างคีย์: " . $e->getMessage();
                     $alertType = 'error';
@@ -248,6 +255,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $rcLog($on === '1' ? 'KILL_SWITCH_ON' : 'KILL_SWITCH_OFF');
             $alert = $on === '1' ? 'เปิด Emergency Maintenance แล้ว — แอปลูกค้าทุกเครื่องจะถูกล็อกทันที' : 'ปิด Emergency Maintenance แล้ว — ระบบกลับมาใช้งานได้ปกติ';
             $alertType = $on === '1' ? 'error' : 'success';
+
+            sendSystemNotification($pdo, 
+                $on === '1' ? '🚨 แจ้งเตือนฉุกเฉิน: ปิดปรับปรุงระบบ (Kill-Switch Active)' : '✅ ระบบกลับมาเปิดใช้งานปกติ (System Online)',
+                $on === '1' ? 'แอดมินสั่งเปิด Emergency Maintenance ลูกค้าจะไม่สามารถเปิดสูตรได้ชั่วคราวเพื่อความปลอดภัย' : 'แอดมินปิด Maintenance แล้ว ลูกค้าสามารถเปิดใช้งานสูตรได้ตามปกติ',
+                'kill_switch',
+                [
+                    'สถานะ' => $on === '1' ? 'ปิดปรับปรุงชั่วคราว' : 'เปิดใช้งานปกติ',
+                    'ผู้สั่งการ' => $currentUsername,
+                    'เวลา' => date('d/m/Y H:i:s')
+                ]
+            );
         }
 
         if ($action === 'save_kill_message') {
@@ -320,6 +338,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'clear_logs' && $isAdmin) {
         $pdo->query("TRUNCATE TABLE `activity_logs`");
         $alert = "ล้างบันทึกกิจกรรมความปลอดภัยทั้งหมดแล้ว";
+    }
+
+    // 7.1 SAVE NOTIFICATIONS (Admin only)
+    if ($action === 'save_notifications' && $isAdmin) {
+        $discordUrl = trim($_POST['discord_webhook_url'] ?? '');
+        $tgToken = trim($_POST['telegram_bot_token'] ?? '');
+        $tgChatId = trim($_POST['telegram_chat_id'] ?? '');
+
+        $notifyAct = !empty($_POST['notify_license_activation']) ? '1' : '0';
+        $notifyRes = !empty($_POST['notify_reseller_generate']) ? '1' : '0';
+        $notifyKs = !empty($_POST['notify_kill_switch']) ? '1' : '0';
+        $notifyOta = !empty($_POST['notify_cloud_ota']) ? '1' : '0';
+
+        saveSystemSetting($pdo, 'discord_webhook_url', $discordUrl);
+        saveSystemSetting($pdo, 'telegram_bot_token', $tgToken);
+        saveSystemSetting($pdo, 'telegram_chat_id', $tgChatId);
+        saveSystemSetting($pdo, 'notify_license_activation', $notifyAct);
+        saveSystemSetting($pdo, 'notify_reseller_generate', $notifyRes);
+        saveSystemSetting($pdo, 'notify_kill_switch', $notifyKs);
+        saveSystemSetting($pdo, 'notify_cloud_ota', $notifyOta);
+
+        $alert = "บันทึกการตั้งค่าการแจ้งเตือน Discord & Telegram เรียบร้อยแล้ว!";
+    }
+
+    // 7.2 TEST NOTIFICATION (Admin only)
+    if ($action === 'test_notification' && $isAdmin) {
+        sendSystemNotification($pdo, '🚀 ทดสอบการเชื่อมต่อแจ้งเตือนสำเร็จ!', 'ระบบ XSTH License สามารถส่งแจ้งเตือนเข้าห้องของคุณได้ตามปกติ 100%', 'test', [
+            'ระบบ' => 'XSTH VIP License & OTA Manager',
+            'ผู้ทดสอบ' => $currentUsername,
+            'สถานะ' => 'ออนไลน์ พร้อมใช้งาน (Online)'
+        ]);
+        $alert = "ส่งข้อความทดสอบไปยัง Discord / Telegram เรียบร้อยแล้ว! กรุณาตรวจสอบในห้องของคุณ";
     }
 
     // 8. ADD NEW RESELLER (Admin only)
@@ -524,6 +574,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         `updated_at` = NOW()");
                 $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description]);
 
+                sendSystemNotification($pdo, '☁️ อัปเดตสูตรใหม่ผ่าน Cloud OTA', 'แอดมินได้ทำการอัปโหลดสูตรใหม่ขึ้นเซิร์ฟเวอร์', 'ota', [
+                    'ชื่อสูตร' => $patchName,
+                    'ไฟล์เป้าหมาย' => $safeTarget,
+                    'เวอร์ชั่น' => "v{$version}",
+                    'ขนาดไฟล์' => number_format($fileSize / 1024, 1) . ' KB',
+                    'การทำงาน' => 'แอปในเครื่องลูกค้าจะอัปเดตให้อัตโนมัติ'
+                ]);
+
                 $alert = "อัปโหลดและเปิดใช้งาน Cloud Patch '{$safeTarget}' (v{$version}) เรียบร้อยแล้ว!";
             } else {
                 $alert = "ไม่สามารถบันทึกไฟล์อัปโหลดลงบนเซิร์ฟเวอร์ได้ ตรวจสอบสิทธิ์โฟลเดอร์ uploads/";
@@ -700,7 +758,7 @@ function getResellerExpiryBadge($expiresAt) {
     return '<span class="badge reseller-active" title="' . e($dateStr) . '">เหลือ ' . $diffDays . ' วัน (' . e(date('d/m/Y', $expTime)) . ')</span>';
 }
 
-$sysSettings = ($isAdmin && $tab === 'remote') ? getSystemSettings($pdo) : [];
+$sysSettings = ($isAdmin && in_array($tab, ['remote', 'settings'], true)) ? getSystemSettings($pdo) : [];
 $cloudPatches = ($isAdmin && $tab === 'patches') ? (function() use ($pdo) {
     ensureCloudPatchesTable($pdo);
     return $pdo->query("SELECT * FROM `cloud_patches` ORDER BY `id` DESC")->fetchAll();
@@ -2129,18 +2187,120 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
     </div>
 
   <?php elseif ($tab === 'settings' && $isAdmin): ?>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px">
-      <div class="card"><div class="card-head"><h3>เปลี่ยนรหัสผ่านแอดมิน</h3></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:16px;margin-bottom:20px">
+      <div class="card"><div class="card-head"><h3><i class="fa-solid fa-key"></i>เปลี่ยนรหัสผ่านแอดมิน</h3></div>
         <form method="POST" class="card-body"><input type="hidden" name="action" value="change_password">
           <div class="field"><label>ชื่อผู้ใช้</label><input class="input" value="<?= e($currentUsername) ?>" disabled></div>
           <div class="field"><label>รหัสผ่านใหม่</label><input type="password" name="new_password" class="input" minlength="6" required><span class="hint">อย่างน้อย 6 ตัวอักษร</span></div>
           <button class="btn btn-primary">บันทึกรหัสผ่าน</button></form></div>
-      <div class="card"><div class="card-head"><h3>API Endpoint</h3></div>
+      <div class="card"><div class="card-head"><h3><i class="fa-solid fa-network-wired"></i>API Endpoint</h3></div>
         <div class="card-body">
           <div class="field"><label>URL</label><div style="display:flex;gap:6px"><input id="apiEndpoint" class="input" value="<?= e($apiEndpointURL) ?>" readonly><button type="button" class="btn" onclick="copyText(document.getElementById('apiEndpoint').value,'คัดลอกแล้ว')" aria-label="คัดลอก"><i class="fa-regular fa-copy"></i></button></div></div>
           <div class="dim">ตัวอย่างการเรียกจาก Swift</div>
           <pre class="mono" style="font-size:12px;background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;margin-top:6px">let url = URL(string: "<?= e($apiEndpointURL) ?>?key=KEY&device_id=UDID")!</pre>
         </div></div>
+    </div>
+
+    <!-- 🔔 Discord & Telegram Notification Settings Card -->
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-bell" style="color:#facc15"></i>ระบบแจ้งเตือนเข้า Discord &amp; Telegram อัตโนมัติ</h3>
+        <span class="pill" style="background:rgba(250,204,21,0.12);color:#facc15;border:1px solid rgba(250,204,21,0.3)">Realtime Alerts</span>
+      </div>
+      <div class="card-body">
+        <form method="POST" style="margin-bottom:16px">
+          <input type="hidden" name="action" value="save_notifications">
+          
+          <div class="grid-2" style="margin-bottom:20px">
+            <!-- Discord Config -->
+            <div style="background:#09090b;border:1px solid var(--line-strong);border-radius:12px;padding:16px">
+              <h4 style="color:#5865F2;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <i class="fa-brands fa-discord" style="font-size:18px"></i> Discord Webhook
+              </h4>
+              <div class="field">
+                <label>Discord Webhook URL</label>
+                <input class="input" name="discord_webhook_url" placeholder="https://discord.com/api/webhooks/..." value="<?= e($sysSettings['discord_webhook_url'] ?? '') ?>">
+                <span class="hint">สร้างได้ที่: ตั้งค่าห้องใน Discord &gt; Integrations &gt; Webhooks &gt; Copy Webhook URL</span>
+              </div>
+            </div>
+
+            <!-- Telegram Config -->
+            <div style="background:#09090b;border:1px solid var(--line-strong);border-radius:12px;padding:16px">
+              <h4 style="color:#229ED9;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:12px">
+                <i class="fa-brands fa-telegram" style="font-size:18px"></i> Telegram Bot
+              </h4>
+              <div class="field">
+                <label>Bot Token</label>
+                <input class="input" name="telegram_bot_token" placeholder="123456789:ABCdefGHIjklmNOPqrst..." value="<?= e($sysSettings['telegram_bot_token'] ?? '') ?>">
+                <span class="hint">ขอโทเค็นบอทฟรีได้จาก @BotFather ใน Telegram</span>
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>Chat ID / Group ID</label>
+                <input class="input" name="telegram_chat_id" placeholder="เช่น 123456789 หรือ -100123456789" value="<?= e($sysSettings['telegram_chat_id'] ?? '') ?>">
+                <span class="hint">ดูไอดีแชทหรือไอดีกลุ่มได้จาก @userinfobot ใน Telegram</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Toggles Section -->
+          <div style="margin-bottom:20px">
+            <label style="display:block;font-weight:700;margin-bottom:12px;color:#d4d4d4">เลือกเหตุการณ์ที่ต้องการให้แจ้งเตือน:</label>
+            <div class="grid-2">
+              <label class="rc-switch-card <?= ($sysSettings['notify_license_activation'] ?? '1')==='1' ? 'active' : '' ?>">
+                <div class="rc-switch-label">
+                  <span class="rc-switch-title"><i class="fa-solid fa-key" style="color:#22c55e"></i> ลูกค้าเปิดใช้งานคีย์ครั้งแรก</span>
+                  <span class="rc-switch-desc">ส่งแจ้งเตือนชื่ออุปกรณ์, UDID, IP และวันหมดอายุเมื่อลูกค้าผูกคีย์เข้าเครื่อง</span>
+                </div>
+                <div class="cyber-switch">
+                  <input type="checkbox" name="notify_license_activation" value="1" <?= ($sysSettings['notify_license_activation'] ?? '1')==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="rc-switch-card <?= ($sysSettings['notify_reseller_generate'] ?? '1')==='1' ? 'active' : '' ?>">
+                <div class="rc-switch-label">
+                  <span class="rc-switch-title"><i class="fa-solid fa-user-tag" style="color:#eab308"></i> ตัวแทน (Reseller) สร้างคีย์</span>
+                  <span class="rc-switch-desc">แจ้งเตือนชื่อตัวแทน, จำนวนคีย์ที่สร้าง, และเครดิตคงเหลือ</span>
+                </div>
+                <div class="cyber-switch">
+                  <input type="checkbox" name="notify_reseller_generate" value="1" <?= ($sysSettings['notify_reseller_generate'] ?? '1')==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="rc-switch-card <?= ($sysSettings['notify_kill_switch'] ?? '1')==='1' ? 'active' : '' ?>">
+                <div class="rc-switch-label">
+                  <span class="rc-switch-title"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444"></i> สวิตช์ฉุกเฉิน (Kill-Switch)</span>
+                  <span class="rc-switch-desc">ส่งแจ้งเตือนทันทีเมื่อมีการเปิดหรือปิดระบบ Emergency Maintenance</span>
+                </div>
+                <div class="cyber-switch">
+                  <input type="checkbox" name="notify_kill_switch" value="1" <?= ($sysSettings['notify_kill_switch'] ?? '1')==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
+                  <span class="slider"></span>
+                </div>
+              </label>
+
+              <label class="rc-switch-card <?= ($sysSettings['notify_cloud_ota'] ?? '1')==='1' ? 'active' : '' ?>">
+                <div class="rc-switch-label">
+                  <span class="rc-switch-title"><i class="fa-solid fa-cloud-arrow-up" style="color:#38bdf8"></i> อัปโหลดสูตรใหม่ (Cloud OTA)</span>
+                  <span class="rc-switch-desc">แจ้งเตือนชื่อสูตร, เวอร์ชั่น และขนาดไฟล์เมื่อมีการเผยแพร่สูตรใหม่</span>
+                </div>
+                <div class="cyber-switch">
+                  <input type="checkbox" name="notify_cloud_ota" value="1" <?= ($sysSettings['notify_cloud_ota'] ?? '1')==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
+                  <span class="slider"></span>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> บันทึกการตั้งค่าแจ้งเตือน</button>
+        </form>
+            <form method="POST" style="display:inline">
+              <input type="hidden" name="action" value="test_notification">
+              <button class="btn" type="submit"><i class="fa-solid fa-paper-plane" style="color:#38bdf8"></i> ทดสอบส่งแจ้งเตือน (Test Notification)</button>
+            </form>
+          </div>
+      </div>
     </div>
   <?php endif; ?>
   </main>

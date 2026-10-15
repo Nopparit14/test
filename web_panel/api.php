@@ -297,6 +297,15 @@ if ($license['status'] === 'unused') {
 
     logActivity($pdo, $key, 'ACTIVATED_SUCCESS', $deviceId, $deviceName, $clientIP);
 
+    sendSystemNotification($pdo, '🎉 ลูกค้าเปิดใช้งานคีย์ใหม่', 'มีลูกค้าทำการเชื่อมต่อและเปิดใช้งานคีย์เข้าสู่ระบบสำเร็จ', 'activation', [
+        'รหัสคีย์' => $key,
+        'อายุการใช้งาน' => $duration > 0 ? "{$duration} วัน" : 'ตลอดชีพ (Lifetime)',
+        'อุปกรณ์' => $deviceName ?: 'iOS Device',
+        'เลขเครื่อง (UDID)' => !empty($deviceId) ? (substr($deviceId, 0, 8) . '...' . substr($deviceId, -4)) : 'Unknown',
+        'IP Address' => $clientIP,
+        'หมดอายุวันที่' => $expiresAt ? date('d/m/Y H:i', strtotime($expiresAt)) : 'ตลอดชีพ'
+    ]);
+
     echo json_encode([
         'status' => 'success',
         'message' => 'License activated successfully!',

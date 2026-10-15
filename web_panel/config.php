@@ -36,7 +36,15 @@ function systemSettingsDefaults() {
         'force_update_enabled' => '0',
         'latest_app_version' => '1.1.2',
         'update_download_url' => '',
-        'update_changelog' => ''
+        'update_changelog' => '',
+        // Discord & Telegram Notification Settings
+        'discord_webhook_url' => '',
+        'telegram_bot_token' => '',
+        'telegram_chat_id' => '',
+        'notify_license_activation' => '1',
+        'notify_reseller_generate' => '1',
+        'notify_kill_switch' => '1',
+        'notify_cloud_ota' => '1'
     ];
 }
 
@@ -60,6 +68,93 @@ function saveSystemSetting($pdo, $key, $value) {
     $stmt = $pdo->prepare("INSERT INTO `system_settings` (`setting_key`, `setting_value`) VALUES (?, ?)
                            ON DUPLICATE KEY UPDATE `setting_value` = VALUES(`setting_value`)");
     $stmt->execute([$key, (string)$value]);
+}
+
+function sendSystemNotification($pdo, $title, $message, $type = 'info', $fields = []) {
+    try {
+        $settings = getSystemSettings($pdo);
+
+        if ($type === 'activation' && ($settings['notify_license_activation'] ?? '1') !== '1') return;
+        if ($type === 'reseller' && ($settings['notify_reseller_generate'] ?? '1') !== '1') return;
+        if ($type === 'kill_switch' && ($settings['notify_kill_switch'] ?? '1') !== '1') return;
+        if ($type === 'ota' && ($settings['notify_cloud_ota'] ?? '1') !== '1') return;
+
+        $colorMap = [
+            'activation' => 0x22c55e, // Green
+            'reseller'   => 0xeab308, // Gold
+            'kill_switch'=> 0xef4444, // Red
+            'ota'        => 0x38bdf8, // Cyan
+            'test'       => 0xa855f7, // Purple
+            'info'       => 0x38bdf8  // Blue
+        ];
+        $embedColor = $colorMap[$type] ?? 0x38bdf8;
+
+        // 1. Send Discord Webhook
+        $discordUrl = trim($settings['discord_webhook_url'] ?? '');
+        if (!empty($discordUrl) && filter_var($discordUrl, FILTER_VALIDATE_URL)) {
+            $embedFields = [];
+            foreach ($fields as $k => $v) {
+                $embedFields[] = [
+                    'name' => (string)$k,
+                    'value' => (string)$v,
+                    'inline' => true
+                ];
+            }
+
+            $payload = [
+                'username' => 'XSTH Security Bot',
+                'avatar_url' => 'https://img.icons8.com/neon/96/shield.png',
+                'embeds' => [
+                    [
+                        'title' => $title,
+                        'description' => $message,
+                        'color' => $embedColor,
+                        'fields' => $embedFields,
+                        'footer' => [
+                            'text' => 'XSTH License System • ' . date('d/m/Y H:i:s')
+                        ]
+                    ]
+                ]
+            ];
+
+            $ch = curl_init($discordUrl);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json; charset=utf-8']);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+            curl_exec($ch);
+            curl_close($ch);
+        }
+
+        // 2. Send Telegram Bot
+        $tgToken = trim($settings['telegram_bot_token'] ?? '');
+        $tgChatId = trim($settings['telegram_chat_id'] ?? '');
+        if (!empty($tgToken) && !empty($tgChatId)) {
+            $tgText = "<b>" . htmlspecialchars($title) . "</b>\n";
+            $tgText .= htmlspecialchars($message) . "\n\n";
+            foreach ($fields as $k => $v) {
+                $tgText .= "• <b>" . htmlspecialchars($k) . ":</b> " . htmlspecialchars($v) . "\n";
+            }
+            $tgText .= "\n🕒 <i>" . date('d/m/Y H:i:s') . "</i>";
+
+            $tgUrl = "https://api.telegram.org/bot{$tgToken}/sendMessage";
+            $ch = curl_init($tgUrl);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, [
+                'chat_id' => $tgChatId,
+                'text' => $tgText,
+                'parse_mode' => 'HTML',
+                'disable_web_page_preview' => 'true'
+            ]);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+            curl_exec($ch);
+            curl_close($ch);
+        }
+    } catch (Throwable $e) {}
 }
 
 function ensureCloudPatchesTable($pdo) {
