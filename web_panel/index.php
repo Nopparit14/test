@@ -90,13 +90,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $pdo->commit();
                     $alert = "สร้างคีย์สำเร็จ {$count} รายการ! หักเครดิต {$count} เครดิต (คงเหลือ {$currentResellerCredits} เครดิต)";
 
-                    sendSystemNotification($pdo, '🏷️ ตัวแทนสร้างคีย์ใหม่', "ตัวแทนจำหน่ายได้ทำการตัดเครดิตและสร้างคีย์ใหม่สำเร็จ", 'reseller', [
+                    sendSystemNotification($pdo, 'ตัวแทนสร้างคีย์ใหม่', "ตัวแทนจำหน่ายได้ทำการตัดเครดิตและสร้างคีย์ใหม่สำเร็จ", 'reseller', [
                         'ตัวแทน' => $currentDisplayName . " (@{$currentReseller['username']})",
                         'จำนวนคีย์' => "{$count} คีย์ ({$duration} วัน)",
                         'เครดิตคงเหลือ' => "{$currentResellerCredits} เครดิต",
                         'โน้ต' => $note ?: '-',
                         'ตัวอย่างคีย์' => $newlyGeneratedKeys[0] ?? '-'
                     ]);
+                } catch (Exception $e) {
                     $pdo->rollBack();
                     $alert = "เกิดข้อผิดพลาดในการสร้างคีย์: " . $e->getMessage();
                     $alertType = 'error';
@@ -257,7 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $alertType = $on === '1' ? 'error' : 'success';
 
             sendSystemNotification($pdo, 
-                $on === '1' ? '🚨 แจ้งเตือนฉุกเฉิน: ปิดปรับปรุงระบบ (Kill-Switch Active)' : '✅ ระบบกลับมาเปิดใช้งานปกติ (System Online)',
+                $on === '1' ? '🚨 แจ้งเตือนฉุกเฉิน: ปิดปรับปรุงระบบ ' : '✅ ระบบกลับมาเปิดใช้งานปกติ',
                 $on === '1' ? 'แอดมินสั่งเปิด Emergency Maintenance ลูกค้าจะไม่สามารถเปิดสูตรได้ชั่วคราวเพื่อความปลอดภัย' : 'แอดมินปิด Maintenance แล้ว ลูกค้าสามารถเปิดใช้งานสูตรได้ตามปกติ',
                 'kill_switch',
                 [
@@ -364,12 +365,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 7.2 TEST NOTIFICATION (Admin only)
     if ($action === 'test_notification' && $isAdmin) {
-        sendSystemNotification($pdo, '🚀 ทดสอบการเชื่อมต่อแจ้งเตือนสำเร็จ!', 'ระบบ XSTH License สามารถส่งแจ้งเตือนเข้าห้องของคุณได้ตามปกติ 100%', 'test', [
+        $testRes = sendSystemNotification($pdo, '🚀 ทดสอบการเชื่อมต่อแจ้งเตือนสำเร็จ!', 'ระบบ XSTH License & Cloud OTA สามารถส่งข้อความเข้าห้อง Discord ของคุณได้แบบเรียลไทม์ 100%', 'test', [
             'ระบบ' => 'XSTH VIP License & OTA Manager',
             'ผู้ทดสอบ' => $currentUsername,
-            'สถานะ' => 'ออนไลน์ พร้อมใช้งาน (Online)'
+            'สถานะ' => 'ออนไลน์ พร้อมใช้งาน (Online)',
+            'เวลาทดสอบ' => date('d/m/Y H:i:s')
         ]);
-        $alert = "ส่งข้อความทดสอบไปยัง Discord / Telegram เรียบร้อยแล้ว! กรุณาตรวจสอบในห้องของคุณ";
+
+        $discordSent = $testRes['discord']['sent'] ?? false;
+        $telegramSent = $testRes['telegram']['sent'] ?? false;
+
+        if ($discordSent && $telegramSent) {
+            $alert = "✅ ส่งข้อความทดสอบเข้าทั้ง Discord และ Telegram สำเร็จเรียบร้อยแล้ว!";
+        } elseif ($discordSent) {
+            $alert = "✅ ส่งข้อความทดสอบเข้า Discord สำเร็จเรียบร้อยแล้ว! (HTTP 204)";
+        } elseif ($telegramSent) {
+            $alert = "✅ ส่งข้อความทดสอบเข้า Telegram สำเร็จเรียบร้อยแล้ว!";
+        } else {
+            $discordErr = !empty($testRes['discord']['error']) ? $testRes['discord']['error'] : 'ยังไม่ได้ระบุ Discord Webhook URL';
+            $alert = "⚠️ ไม่สามารถส่งแจ้งเตือนได้: Discord ({$discordErr})";
+            $alertType = 'error';
+        }
     }
 
     // 8. ADD NEW RESELLER (Admin only)
@@ -2201,50 +2217,147 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
         </div></div>
     </div>
 
-    <!-- 🔔 Discord & Telegram Notification Settings Card -->
-    <div class="card">
-      <div class="card-head">
-        <h3><i class="fa-solid fa-bell" style="color:#facc15"></i>ระบบแจ้งเตือนเข้า Discord &amp; Telegram อัตโนมัติ</h3>
-        <span class="pill" style="background:rgba(250,204,21,0.12);color:#facc15;border:1px solid rgba(250,204,21,0.3)">Realtime Alerts</span>
+    <!-- 🔔 Discord Webhook Realtime Notification Settings Card -->
+    <div class="card" style="border-color:rgba(88, 101, 242, 0.35); box-shadow:0 0 24px rgba(88, 101, 242, 0.08);">
+      <div class="card-head" style="background:linear-gradient(90deg, rgba(88, 101, 242, 0.12), transparent);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:#5865F2;color:#fff;display:grid;place-items:center;font-size:18px;">
+            <i class="fa-brands fa-discord"></i>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:#fff;">ระบบแจ้งเตือนผ่าน Discord Webhook</h3>
+            <div style="font-size:12px;color:var(--muted)">แจ้งเตือนเหตุการณ์สำคัญ คีย์ใหม่ และ Cloud OTA เข้ากลุ่ม Discord ของคุณทันทีแบบเรียลไทม์</div>
+          </div>
+        </div>
+        <div>
+          <?php if (!empty($sysSettings['discord_webhook_url'])): ?>
+            <span class="pill ok"><i class="fa-solid fa-circle-check"></i> Discord เชื่อมต่อแล้ว</span>
+          <?php else: ?>
+            <span class="pill" style="color:#a1a1aa;background:#18181b"><i class="fa-regular fa-circle"></i> ยังไม่ได้ระบุ Webhook</span>
+          <?php endif; ?>
+        </div>
       </div>
       <div class="card-body">
         <form method="POST" style="margin-bottom:16px">
           <input type="hidden" name="action" value="save_notifications">
           
-          <div class="grid-2" style="margin-bottom:20px">
-            <!-- Discord Config -->
-            <div style="background:#09090b;border:1px solid var(--line-strong);border-radius:12px;padding:16px">
-              <h4 style="color:#5865F2;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <i class="fa-brands fa-discord" style="font-size:18px"></i> Discord Webhook
-              </h4>
-              <div class="field">
-                <label>Discord Webhook URL</label>
-                <input class="input" name="discord_webhook_url" placeholder="https://discord.com/api/webhooks/..." value="<?= e($sysSettings['discord_webhook_url'] ?? '') ?>">
-                <span class="hint">สร้างได้ที่: ตั้งค่าห้องใน Discord &gt; Integrations &gt; Webhooks &gt; Copy Webhook URL</span>
+          <div class="grid-2" style="margin-bottom:20px; align-items:start;">
+            <!-- Left: Discord Webhook Input & Instructions -->
+            <div>
+              <div style="background:#09090b;border:1px solid rgba(88, 101, 242, 0.3);border-radius:12px;padding:18px;margin-bottom:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                  <h4 style="color:#5865F2;font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px;margin:0;">
+                    <i class="fa-solid fa-link"></i> Discord Webhook URL
+                  </h4>
+                  <span class="tag" style="background:rgba(88,101,242,0.15);color:#818cf8;border-color:rgba(88,101,242,0.3)">หลัก (Primary)</span>
+                </div>
+                <div class="field" style="margin-bottom:12px;">
+                  <label style="font-size:12.5px;color:#d4d4d4;">ใส่ลิงก์ Webhook ที่ได้จากช่อง Discord:</label>
+                  <input class="input" name="discord_webhook_url" placeholder="https://discord.com/api/webhooks/1234567890/abcXYZ..." value="<?= e($sysSettings['discord_webhook_url'] ?? '') ?>" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;border-color:rgba(88,101,242,0.4);">
+                </div>
+
+                <!-- Step-by-Step Instructions Accordion -->
+                <details style="background:#121214;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--muted);cursor:pointer;">
+                  <summary style="font-weight:700;color:#c4b5fd;outline:none;"><i class="fa-solid fa-circle-info" style="color:#818cf8"></i> วิธีสร้างและคัดลอกลิงก์ Discord Webhook (คลิกเพื่อดูวิธี)</summary>
+                  <div style="margin-top:10px;line-height:1.7;color:#d4d4d4;border-top:1px solid var(--line);padding-top:10px;">
+                    <ol style="margin-left:18px;display:flex;flex-direction:column;gap:6px;">
+                      <li>เปิดโปรแกรม <b>Discord</b> ในคอมพิวเตอร์หรือบนเว็บเบราว์เซอร์</li>
+                      <li>คลิกขวาที่ช่องแชทที่ต้องการให้บอทยิงแจ้งเตือน &gt; เลือก <b>Edit Channel (แก้ไขช่อง)</b></li>
+                      <li>เลือกเมนู <b>Integrations (การผสานรวม)</b> ทางซ้าย &gt; คลิกปุ่ม <b>Webhooks</b></li>
+                      <li>กดปุ่ม <b>New Webhook (สร้างเว็บฮุกใหม่)</b> &gt; ตั้งชื่อเป็น <i>XSTH Security Guard</i></li>
+                      <li>กดปุ่ม <b>Copy Webhook URL (คัดลอก URL ของเว็บฮุก)</b></li>
+                      <li>นำลิงก์มาวางในช่องด้านบนนี้ แล้วกดปุ่ม <b>"บันทึกการตั้งค่าแจ้งเตือน"</b></li>
+                    </ol>
+                  </div>
+                </details>
               </div>
+
+              <!-- Secondary Telegram Settings (Optional) -->
+              <details style="background:#09090b;border:1px solid var(--line-strong);border-radius:12px;padding:14px;">
+                <summary style="color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                  <i class="fa-brands fa-telegram" style="font-size:16px;"></i> ตัวเลือกเสริม: เชื่อมต่อ Telegram Bot ควบคู่กัน (Optional)
+                </summary>
+                <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px;">
+                  <div class="field">
+                    <label>Telegram Bot Token</label>
+                    <input class="input" name="telegram_bot_token" placeholder="123456789:ABCdefGHIjklmNOPqrst..." value="<?= e($sysSettings['telegram_bot_token'] ?? '') ?>">
+                    <span class="hint">ขอโทเค็นได้จาก @BotFather</span>
+                  </div>
+                  <div class="field" style="margin-bottom:0">
+                    <label>Chat ID / Group ID</label>
+                    <input class="input" name="telegram_chat_id" placeholder="เช่น 123456789 หรือ -100123456789" value="<?= e($sysSettings['telegram_chat_id'] ?? '') ?>">
+                  </div>
+                </div>
+              </details>
             </div>
 
-            <!-- Telegram Config -->
-            <div style="background:#09090b;border:1px solid var(--line-strong);border-radius:12px;padding:16px">
-              <h4 style="color:#229ED9;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;margin-bottom:12px">
-                <i class="fa-brands fa-telegram" style="font-size:18px"></i> Telegram Bot
-              </h4>
-              <div class="field">
-                <label>Bot Token</label>
-                <input class="input" name="telegram_bot_token" placeholder="123456789:ABCdefGHIjklmNOPqrst..." value="<?= e($sysSettings['telegram_bot_token'] ?? '') ?>">
-                <span class="hint">ขอโทเค็นบอทฟรีได้จาก @BotFather ใน Telegram</span>
+            <!-- Right: Interactive Discord Live Mockup Preview -->
+            <div style="background:#09090b;border:1px solid var(--line-strong);border-radius:12px;padding:18px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                <h4 style="font-size:13px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:6px;margin:0;">
+                  <i class="fa-solid fa-eye" style="color:#5865F2"></i> ตัวอย่างรูปแบบข้อความใน Discord (Preview)
+                </h4>
+                <span class="tag" style="background:#2b2d31;color:#dbdee1;font-size:11px;">Discord Dark Theme</span>
               </div>
-              <div class="field" style="margin-bottom:0">
-                <label>Chat ID / Group ID</label>
-                <input class="input" name="telegram_chat_id" placeholder="เช่น 123456789 หรือ -100123456789" value="<?= e($sysSettings['telegram_chat_id'] ?? '') ?>">
-                <span class="hint">ดูไอดีแชทหรือไอดีกลุ่มได้จาก @userinfobot ใน Telegram</span>
+
+              <!-- Discord Message Box Simulation -->
+              <div style="background:#313338;border-radius:8px;padding:14px;display:flex;gap:12px;font-family:'gg sans','Noto Sans Thai',sans-serif;">
+                <img src="https://img.icons8.com/fluency/96/shield.png" style="width:40px;height:40px;border-radius:50%;background:#1e1f22;padding:2px;flex-shrink:0;">
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;">
+                    <span style="color:#f2f3f5;font-weight:700;font-size:14px;">XSTH Security Guard</span>
+                    <span style="background:#5865F2;color:#fff;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;text-transform:uppercase;">APP</span>
+                    <span style="color:#949ba4;font-size:11px;">วันนี้ เวลา <?= date('H:i') ?></span>
+                  </div>
+
+                  <!-- Discord Embed Card -->
+                  <div style="background:#2b2d31;border-left:4px solid #22c55e;border-radius:4px;padding:12px 14px;display:flex;justify-content:space-between;gap:12px;">
+                    <div style="flex:1;">
+                      <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#949ba4;font-weight:600;margin-bottom:4px;">
+                        <img src="https://img.icons8.com/fluency/96/shield.png" style="width:14px;height:14px;">
+                        <span>XSTH VIP Security &amp; OTA Manager</span>
+                      </div>
+                      <div style="color:#fff;font-size:14px;font-weight:700;margin-bottom:4px;">
+                        🎉 ลูกค้าเปิดใช้งานคีย์ใหม่
+                      </div>
+                      <div style="color:#dbdee1;font-size:12px;margin-bottom:10px;line-height:1.4;">
+                        มีลูกค้าทำการเชื่อมต่อและเปิดใช้งานคีย์เข้าสู่ระบบสำเร็จ
+                      </div>
+
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                        <div>
+                          <div style="color:#949ba4;font-size:11px;font-weight:700;">รหัสคีย์</div>
+                          <div style="color:#dbdee1;"><code style="background:#1e1f22;padding:2px 5px;border-radius:3px;font-size:11px;color:#f2f3f5;">XSTH-8A91-3C4D</code></div>
+                        </div>
+                        <div>
+                          <div style="color:#949ba4;font-size:11px;font-weight:700;">อายุการใช้งาน</div>
+                          <div style="color:#dbdee1;">30 วัน</div>
+                        </div>
+                        <div>
+                          <div style="color:#949ba4;font-size:11px;font-weight:700;">อุปกรณ์</div>
+                          <div style="color:#dbdee1;">iPhone 15 Pro Max</div>
+                        </div>
+                        <div>
+                          <div style="color:#949ba4;font-size:11px;font-weight:700;">หมดอายุวันที่</div>
+                          <div style="color:#dbdee1;"><?= date('d/m/Y', strtotime('+30 days')) ?></div>
+                        </div>
+                      </div>
+
+                      <div style="margin-top:10px;font-size:10.5px;color:#949ba4;display:flex;align-items:center;gap:6px;">
+                        <img src="https://img.icons8.com/fluency/96/server.png" style="width:12px;height:12px;">
+                        <span>XSTH License System • Realtime Alert</span>
+                      </div>
+                    </div>
+                    <img src="https://img.icons8.com/fluency/96/key.png" style="width:50px;height:50px;object-fit:contain;flex-shrink:0;">
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- Toggles Section -->
           <div style="margin-bottom:20px">
-            <label style="display:block;font-weight:700;margin-bottom:12px;color:#d4d4d4">เลือกเหตุการณ์ที่ต้องการให้แจ้งเตือน:</label>
+            <label style="display:block;font-weight:700;margin-bottom:12px;color:#d4d4d4">เลือกเหตุการณ์ที่ต้องการให้แจ้งเตือนเข้า Discord:</label>
             <div class="grid-2">
               <label class="rc-switch-card <?= ($sysSettings['notify_license_activation'] ?? '1')==='1' ? 'active' : '' ?>">
                 <div class="rc-switch-label">
@@ -2260,7 +2373,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
               <label class="rc-switch-card <?= ($sysSettings['notify_reseller_generate'] ?? '1')==='1' ? 'active' : '' ?>">
                 <div class="rc-switch-label">
                   <span class="rc-switch-title"><i class="fa-solid fa-user-tag" style="color:#eab308"></i> ตัวแทน (Reseller) สร้างคีย์</span>
-                  <span class="rc-switch-desc">แจ้งเตือนชื่อตัวแทน, จำนวนคีย์ที่สร้าง, และเครดิตคงเหลือ</span>
+                  <span class="rc-switch-desc">แจ้งเตือนชื่อตัวแทน, จำนวนคีย์ที่สร้าง, และเตือนเมื่อเครดิตใกล้หมด</span>
                 </div>
                 <div class="cyber-switch">
                   <input type="checkbox" name="notify_reseller_generate" value="1" <?= ($sysSettings['notify_reseller_generate'] ?? '1')==='1' ? 'checked' : '' ?> onchange="this.closest('.rc-switch-card').classList.toggle('active', this.checked)">
@@ -2297,7 +2410,9 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
         </form>
             <form method="POST" style="display:inline">
               <input type="hidden" name="action" value="test_notification">
-              <button class="btn" type="submit"><i class="fa-solid fa-paper-plane" style="color:#38bdf8"></i> ทดสอบส่งแจ้งเตือน (Test Notification)</button>
+              <button class="btn" type="submit" style="background:#5865F2;border-color:#5865F2;color:#fff;">
+                <i class="fa-brands fa-discord"></i> ยิงทดสอบแจ้งเตือนเข้า Discord ทันที (Test Discord)
+              </button>
             </form>
           </div>
       </div>

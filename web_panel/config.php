@@ -71,48 +71,75 @@ function saveSystemSetting($pdo, $key, $value) {
 }
 
 function sendSystemNotification($pdo, $title, $message, $type = 'info', $fields = []) {
+    $results = ['discord' => ['sent' => false, 'code' => 0, 'error' => ''], 'telegram' => ['sent' => false, 'code' => 0, 'error' => '']];
     try {
         $settings = getSystemSettings($pdo);
 
-        if ($type === 'activation' && ($settings['notify_license_activation'] ?? '1') !== '1') return;
-        if ($type === 'reseller' && ($settings['notify_reseller_generate'] ?? '1') !== '1') return;
-        if ($type === 'kill_switch' && ($settings['notify_kill_switch'] ?? '1') !== '1') return;
-        if ($type === 'ota' && ($settings['notify_cloud_ota'] ?? '1') !== '1') return;
+        if ($type === 'activation' && ($settings['notify_license_activation'] ?? '1') !== '1') return $results;
+        if ($type === 'reseller' && ($settings['notify_reseller_generate'] ?? '1') !== '1') return $results;
+        if ($type === 'kill_switch' && ($settings['notify_kill_switch'] ?? '1') !== '1') return $results;
+        if ($type === 'ota' && ($settings['notify_cloud_ota'] ?? '1') !== '1') return $results;
 
         $colorMap = [
-            'activation' => 0x22c55e, // Green
-            'reseller'   => 0xeab308, // Gold
-            'kill_switch'=> 0xef4444, // Red
-            'ota'        => 0x38bdf8, // Cyan
-            'test'       => 0xa855f7, // Purple
-            'info'       => 0x38bdf8  // Blue
+            'activation' => 0x22c55e, // Emerald Green
+            'reseller'   => 0xf59e0b, // Amber Gold
+            'kill_switch'=> 0xef4444, // Crimson Red
+            'ota'        => 0x06b6d4, // Cyan Sky
+            'test'       => 0x8b5cf6, // Violet
+            'info'       => 0x3b82f6  // Blue
         ];
-        $embedColor = $colorMap[$type] ?? 0x38bdf8;
+        $embedColor = $colorMap[$type] ?? 0x3b82f6;
+
+        $thumbMap = [
+            'activation' => 'https://img.icons8.com/fluency/96/key.png',
+            'reseller'   => 'https://img.icons8.com/fluency/96/conference-call.png',
+            'kill_switch'=> 'https://img.icons8.com/fluency/96/error.png',
+            'ota'        => 'https://img.icons8.com/fluency/96/cloud-sync.png',
+            'test'       => 'https://img.icons8.com/fluency/96/rocket.png',
+            'info'       => 'https://img.icons8.com/fluency/96/info-popup.png'
+        ];
+        $thumbnailUrl = $thumbMap[$type] ?? $thumbMap['info'];
 
         // 1. Send Discord Webhook
         $discordUrl = trim($settings['discord_webhook_url'] ?? '');
         if (!empty($discordUrl) && filter_var($discordUrl, FILTER_VALIDATE_URL)) {
             $embedFields = [];
             foreach ($fields as $k => $v) {
+                $valStr = (string)$v;
+                // Highlight keys, UDIDs, IPs, and filenames in Discord markdown code blocks
+                if (preg_match('/(คีย์|UDID|IP|ไฟล์|เวอร์ชั่น)/u', (string)$k) && !str_starts_with($valStr, '`')) {
+                    $formattedVal = "`{$valStr}`";
+                } else {
+                    $formattedVal = $valStr;
+                }
                 $embedFields[] = [
                     'name' => (string)$k,
-                    'value' => (string)$v,
+                    'value' => $formattedVal,
                     'inline' => true
                 ];
             }
 
             $payload = [
-                'username' => 'XSTH Security Bot',
-                'avatar_url' => 'https://img.icons8.com/neon/96/shield.png',
+                'username' => 'XSTH Security Guard',
+                'avatar_url' => 'https://img.icons8.com/fluency/96/shield.png',
                 'embeds' => [
                     [
+                        'author' => [
+                            'name' => 'XSTH VIP Security & OTA Manager',
+                            'icon_url' => 'https://img.icons8.com/fluency/96/shield.png'
+                        ],
                         'title' => $title,
                         'description' => $message,
                         'color' => $embedColor,
                         'fields' => $embedFields,
+                        'thumbnail' => [
+                            'url' => $thumbnailUrl
+                        ],
                         'footer' => [
-                            'text' => 'XSTH License System • ' . date('d/m/Y H:i:s')
-                        ]
+                            'text' => 'XSTH License System • Realtime Alert',
+                            'icon_url' => 'https://img.icons8.com/fluency/96/server.png'
+                        ],
+                        'timestamp' => gmdate('Y-m-d\TH:i:s\Z')
                     ]
                 ]
             ];
@@ -123,9 +150,18 @@ function sendSystemNotification($pdo, $title, $message, $type = 'info', $fields 
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
-            curl_exec($ch);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            $resp = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
             curl_close($ch);
+
+            $results['discord']['code'] = $httpCode;
+            if ($httpCode >= 200 && $httpCode < 300) {
+                $results['discord']['sent'] = true;
+            } else {
+                $results['discord']['error'] = $curlErr ?: "HTTP {$httpCode}: " . mb_substr($resp ?: '', 0, 150);
+            }
         }
 
         // 2. Send Telegram Bot
@@ -150,11 +186,21 @@ function sendSystemNotification($pdo, $title, $message, $type = 'info', $fields 
             ]);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
-            curl_exec($ch);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            $resp = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
             curl_close($ch);
+
+            $results['telegram']['code'] = $httpCode;
+            if ($httpCode >= 200 && $httpCode < 300) {
+                $results['telegram']['sent'] = true;
+            } else {
+                $results['telegram']['error'] = $curlErr ?: "HTTP {$httpCode}";
+            }
         }
     } catch (Throwable $e) {}
+    return $results;
 }
 
 function ensureCloudPatchesTable($pdo) {
