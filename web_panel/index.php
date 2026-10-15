@@ -594,33 +594,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $unlockPassword = trim($_POST['unlock_password'] ?? '');
 
-                    // Remove previous physical file on server if updating existing target_filename
-                    try {
-                        $oldStmt = $pdo->prepare("SELECT `file_path` FROM `cloud_patches` WHERE `target_filename` = ?");
-                        $oldStmt->execute([$safeTarget]);
-                        $oldFile = $oldStmt->fetchColumn();
-                        if ($oldFile) {
-                            $oldDiskPath = __DIR__ . '/' . ltrim($oldFile, '/\\');
-                            if (file_exists($oldDiskPath) && $oldDiskPath !== $destPath) {
-                                @unlink($oldDiskPath);
-                            }
-                        }
-                    } catch (Throwable $eDel) {}
-
-                    // Upsert to cloud_patches with created_at and updated_at
+                    // Always insert a new row! Never overwrites or deletes anything!
                     $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
                         (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `is_active`, `created_at`, `updated_at`)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
-                        ON DUPLICATE KEY UPDATE 
-                            `patch_name` = VALUES(`patch_name`),
-                            `version` = VALUES(`version`),
-                            `file_path` = VALUES(`file_path`),
-                            `file_size` = VALUES(`file_size`),
-                            `file_hash` = VALUES(`file_hash`),
-                            `description` = VALUES(`description`),
-                            `unlock_password` = VALUES(`unlock_password`),
-                            `is_active` = 1,
-                            `updated_at` = NOW()");
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())");
                     $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description, $unlockPassword]);
 
                     sendSystemNotification($pdo, '☁️ อัปเดตสูตรใหม่ผ่าน Cloud OTA', 'แอดมินได้ทำการอัปโหลดสูตรใหม่ขึ้นเซิร์ฟเวอร์', 'ota', [
@@ -655,6 +632,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             $alert = "ไม่สามารถบันทึกรหัสผ่านได้: " . $e->getMessage();
+            $alertType = 'error';
+        }
+    }
+
+    // 14.2 SCAN & IMPORT ALL EXISTING FILES FROM UPLOADS/PATCHES/
+    if ($action === 'scan_import_patches' && $isAdmin) {
+        try {
+            $dir = __DIR__ . '/uploads/patches/';
+            $imported = 0;
+            if (is_dir($dir)) {
+                $files = scandir($dir);
+                foreach ($files as $f) {
+                    if ($f === '.' || $f === '..' || substr($f, 0, 1) === '.') continue;
+                    $fullPath = $dir . $f;
+                    if (!is_file($fullPath)) continue;
+                    $relPath = 'uploads/patches/' . $f;
+
+                    // Check if already in db
+                    $chk = $pdo->prepare("SELECT COUNT(*) FROM `cloud_patches` WHERE `file_path` = ?");
+                    $chk->execute([$relPath]);
+                    if ((int)$chk->fetchColumn() === 0) {
+                        $fSize = @filesize($fullPath) ?: 0;
+                        $fHash = @hash_file('sha256', $fullPath) ?: '';
+
+                        $pName = 'Patch ' . substr($f, 0, 16);
+                        $tTarget = 'XSTH.3105';
+
+                        $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
+                            (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `is_active`, `created_at`, `updated_at`)
+                            VALUES (?, ?, '1.0', ?, ?, ?, 'นำเข้าจากโฟลเดอร์ uploads/patches บนเซิร์ฟเวอร์', '', 1, NOW(), NOW())");
+                        $stmt->execute([$pName, $tTarget, $relPath, $fSize, $fHash]);
+                        $imported++;
+                    }
+                }
+            }
+            $alert = "ดึงไฟล์ทั้งหมดจากโฟลเดอร์ uploads/patches ขึ้นตารางเรียบร้อยแล้ว (+{$imported} รายการ)";
+        } catch (Throwable $e) {
+            $alert = "เกิดข้อผิดพลาดในการสแกนไฟล์: " . $e->getMessage();
             $alertType = 'error';
         }
     }
@@ -2212,8 +2227,14 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
 
     <!-- Patches List Table Card -->
     <div class="card">
-      <div class="card-head">
+      <div class="card-head" style="display:flex;justify-content:space-between;align-items:center">
         <h3><i class="fa-solid fa-list-check"></i>รายการสูตรบน Cloud OTA (<?= count($cloudPatches) ?>)</h3>
+        <form method="POST" style="margin:0">
+          <input type="hidden" name="action" value="scan_import_patches">
+          <button class="btn btn-sm" style="background:#262626;border-color:var(--line-strong)" title="สแกนไฟล์ทั้งหมดที่มีในโฟลเดอร์ uploads/patches/">
+            <i class="fa-solid fa-rotate" style="color:#38bdf8"></i> ดึงไฟล์ทั้งหมดบนโฮสต์ขึ้นตาราง
+          </button>
+        </form>
       </div>
       <div class="card-body" style="padding:0">
         <div class="table-wrap">

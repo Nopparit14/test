@@ -275,12 +275,9 @@ function ensureCloudPatchesTable($pdo) {
             }
         }
 
-        // Add unique index on target_filename if missing
+        // Drop unique index on target_filename so every upload creates a new entry and never overwrites!
         try {
-            $idxRows = $pdo->query("SHOW INDEX FROM `cloud_patches` WHERE Key_name = 'uniq_target'");
-            if ($idxRows && $idxRows->rowCount() === 0) {
-                $pdo->exec("ALTER TABLE `cloud_patches` ADD UNIQUE KEY `uniq_target` (`target_filename`)");
-            }
+            $pdo->exec("ALTER TABLE `cloud_patches` DROP INDEX `uniq_target`");
         } catch (Throwable $e3) {}
 
     } catch (Throwable $e) {}
