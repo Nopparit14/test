@@ -1986,23 +1986,69 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
         </form>
       </div>
 
-      <!-- OTA Guide Card -->
+      <!-- OTA Guide Card (วิธีใช้งานในหน้าเว็บ) -->
       <div class="card">
         <div class="card-head">
-          <h3><i class="fa-solid fa-circle-info"></i>การทำงานของ Cloud OTA</h3>
+          <h3><i class="fa-solid fa-book-open" style="color:#38bdf8"></i>วิธีใช้งาน &amp; ขั้นตอนการอัปเดตสูตร (OTA Guide)</h3>
+          <span class="pill" style="background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)">ลูกค้าไม่ต้องลงแอปใหม่</span>
         </div>
-        <div class="card-body">
-          <p class="dim" style="line-height:1.6;margin-bottom:14px">
-            ระบบ <b>Cloud Patches OTA</b> ช่วยให้คุณสามารถแก้สูตรและส่งไปยังแอปของลูกค้าทุกคนได้ในคลิกเดียว โดยลูกค้า<b>ไม่ต้องดาวน์โหลดหรือติดตั้งแอป (.ipa) ใหม่</b>
-          </p>
-          <div class="sum-row"><span>1. เช็คอัตโนมัติ</span><b>เมื่อเปิดแอปหรือกดเช็ค</b></div>
-          <div class="sum-row"><span>2. ตรวจสอบ SHA256</span><b>เทียบความต่างของไฟล์</b></div>
-          <div class="sum-row"><span>3. ดาวน์โหลดเบื้องหลัง</span><b>เซฟทับไฟล์เดิมทันที</b></div>
-          <div class="sum-row"><span>4. มีผลทันที</span><b>สูตรในแอปอัปเดตสด</b></div>
+        <div class="card-body" style="font-size:13px;line-height:1.6">
+          <div style="background:rgba(255,255,255,0.03);border:1px solid var(--line-strong);border-radius:10px;padding:12px 14px;margin-bottom:16px">
+            <b style="color:#fff;display:flex;align-items:center;gap:6px;margin-bottom:4px">
+              <i class="fa-solid fa-lightbulb" style="color:#facc15"></i> แนวคิดระบบ Cloud OTA:
+            </b>
+            <span class="dim">เมื่อเกม Free Fire มีอัปเดตแพตช์ย่อย หรือคุณปรับแต่งสูตรใหม่ คุณ<b>ไม่ต้องบิ้วไฟล์ .ipa ใหม่</b> และลูกค้า<b>ไม่ต้อง Sign ใบรับรองติดตั้งใหม่</b> เพียงแค่อัปโหลดไฟล์ .3105 ขึ้นที่นี่ แอปของลูกค้าทุกคนจะอัปเดตสูตรให้สดๆ อัตโนมัติทันที</span>
+          </div>
 
-          <div style="margin-top:16px">
-            <div class="dim" style="margin-bottom:6px">API Endpoint สำหรับดึงรายการสูตร:</div>
-            <pre class="mono" style="font-size:12px;background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto"><?= e($apiEndpointURL) ?>?action=list_patches</pre>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:18px">
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="width:24px;height:24px;border-radius:50%;background:#38bdf8;color:#000;display:grid;place-items:center;font-weight:800;font-size:12px;flex-shrink:0;margin-top:2px">1</div>
+              <div>
+                <b style="color:#fff">เลือกสูตรเป้าหมาย (Target Filename)</b>
+                <div class="dim">กดเลือกสูตรจากดรอปดาวน์ทางซ้าย เช่น ต้องการแก้ดึงหัว ให้เลือก <code style="color:#38bdf8;background:#141416;padding:2px 6px;border-radius:4px">XSTH (6).3105</code></div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="width:24px;height:24px;border-radius:50%;background:#38bdf8;color:#000;display:grid;place-items:center;font-weight:800;font-size:12px;flex-shrink:0;margin-top:2px">2</div>
+              <div>
+                <b style="color:#fff">ตั้งชื่อและเลขเวอร์ชั่นใหม่</b>
+                <div class="dim">พิมพ์ชื่อ เช่น <i>Aim Drag Headshot v2.1</i> และใส่เลขเวอร์ชั่น เช่น <i>2.1</i> เพื่อให้เช็คง่าย</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="width:24px;height:24px;border-radius:50%;background:#38bdf8;color:#000;display:grid;place-items:center;font-weight:800;font-size:12px;flex-shrink:0;margin-top:2px">3</div>
+              <div>
+                <b style="color:#fff">ลากไฟล์ .3105 มาวางในกล่องอัปโหลด</b>
+                <div class="dim">นำไฟล์สูตรตัวใหม่ที่ทำเสร็จแล้ว ลากมาปล่อยลงในกล่อง หรือคลิกเพื่อเลือกไฟล์จากคอม</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:12px;align-items:start">
+              <div style="width:24px;height:24px;border-radius:50%;background:#22c55e;color:#000;display:grid;place-items:center;font-weight:800;font-size:12px;flex-shrink:0;margin-top:2px">4</div>
+              <div>
+                <b style="color:#fff">กดปุ่ม "อัปโหลดและกระจายแพตช์"</b>
+                <div class="dim">ระบบจะบันทึกไฟล์และคำนวณรหัส SHA256 ขึ้นเซิร์ฟเวอร์ทันที พร้อมกระจายไปให้ลูกค้า</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formula Table Guide -->
+          <div style="border-top:1px solid var(--line);padding-top:14px">
+            <b style="color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px">
+              <i class="fa-solid fa-list" style="color:#38bdf8"></i> รหัสไฟล์สูตรหลักในแอป:
+            </b>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11.5px">
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (6).3105</span><b style="color:#38bdf8">Aim Drag (ดึงหัว)</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (7).3105</span><b style="color:#38bdf8">Aim Neck (ดึงคอ)</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (8).3105</span><b style="color:#38bdf8">Antenna (เสาอากาศ)</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (10).3105</span><b style="color:#38bdf8">144 FPS Unlock</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (12).3105</span><b style="color:#38bdf8">Aim Body (ล็อกตัว)</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (2).3105</span><b style="color:#38bdf8">Aim Chest (ล็อกอก)</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH (14).3105</span><b style="color:#38bdf8">Magic Bullet (กระสุน)</b></div>
+              <div class="sum-row" style="padding:4px 0"><span>XSTH.3105</span><b style="color:#38bdf8">Master Bypass</b></div>
+            </div>
           </div>
         </div>
       </div>
