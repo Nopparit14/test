@@ -1,4 +1,4 @@
-Reset Accimport SwiftUI
+import SwiftUI
 
 private enum OnboardingStep: Int, CaseIterable {
     case language = 0, welcome, versions, install
