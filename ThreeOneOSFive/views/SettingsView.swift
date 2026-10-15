@@ -6,6 +6,7 @@ struct SettingsView: View {
     @EnvironmentObject private var appState: AppState
     @EnvironmentObject private var licenseManager: LicenseManager
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
+    @State private var showResetConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -73,6 +74,17 @@ struct SettingsView: View {
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.red)
                     }
+
+                    Button(role: .destructive) {
+                        showResetConfirm = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.counterclockwise.circle.fill")
+                            Text("Reset Acc")
+                        }
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.red)
+                    }
                 }
             }
             .tint(AppTheme.accent)
@@ -86,8 +98,20 @@ struct SettingsView: View {
                         .fontWeight(.semibold)
                 }
             }
+            .alert("Reset Acc", isPresented: $showResetConfirm) {
+                Button("Reset", role: .destructive) {
+                    licenseManager.deactivate()
+                    UserDefaults.standard.removeObject(forKey: OnboardingStore.completedVersionKey)
+                    UserDefaults.standard.removeObject(forKey: OnboardingStore.completedFingerprintKey)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("จะลบ License Key และรีเซ็ตบัญชี เครื่องนี้จะต้องใส่คีย์ใหม่")
+            }
         }
     }
+
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "AppReleaseDisplayVersion") as? String

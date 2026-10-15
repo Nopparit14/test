@@ -8,6 +8,7 @@ struct ContentView: View {
     @EnvironmentObject private var licenseManager: LicenseManager
     @State private var showSettings = false
     @State private var showCleaner = false
+    @State private var showResetConfirm = false
     @StateObject private var patchStore = PatchProjectStore()
     @StateObject private var cloudPatchManager = CloudPatchManager.shared
     @State private var patchOperationBusy = false
@@ -51,6 +52,7 @@ struct ContentView: View {
                     cloudOTABar
                     patchOptionsSection
                     gameLaunchPanel
+                    resetAccPanel
                     footerStatus
                 }
                 .padding(.horizontal, 16)
@@ -66,6 +68,16 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showCleaner) {
             CleanerView()
+        }
+        .alert("Reset Acc", isPresented: $showResetConfirm) {
+            Button("Reset", role: .destructive) {
+                licenseManager.deactivate()
+                UserDefaults.standard.removeObject(forKey: OnboardingStore.completedVersionKey)
+                UserDefaults.standard.removeObject(forKey: OnboardingStore.completedFingerprintKey)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("จะลบ License Key และรีเซ็ตบัญชี เครื่องนี้จะต้องใส่คีย์ใหม่")
         }
         .onAppear {
             licenseManager.fetchRemoteConfig()
@@ -542,8 +554,38 @@ struct ContentView: View {
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
     }
 
+    // MARK: - Reset Acc Panel
+    private var resetAccPanel: some View {
+        Button {
+            showResetConfirm = true
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "arrow.counterclockwise.circle.fill")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Color.red.opacity(0.85))
 
-    // MARK: - Logic
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("RESET ACC")
+                        .font(.system(size: 13, weight: .black, design: .rounded))
+                        .foregroundStyle(Color.red.opacity(0.9))
+
+                    Text("Clear Key & Reset Account")
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.red.opacity(0.45))
+                }
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color.red.opacity(0.35))
+            }
+            .padding(14)
+            .background(Color.red.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.red.opacity(0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
     private func normalizePatchName(_ name: String) -> String {
         let stripped = (name as NSString).deletingPathExtension.lowercased()
         return stripped
