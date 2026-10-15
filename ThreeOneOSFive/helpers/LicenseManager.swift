@@ -374,9 +374,9 @@ final class LicenseManager: ObservableObject {
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         components?.queryItems = [
             URLQueryItem(name: "action", value: "check"),
-            URLQueryItem(name: "device_id", deviceUDID),
-            URLQueryItem(name: "device_name", UIDevice.current.name),
-            URLQueryItem(name: "app_version", Self.currentAppVersion)
+            URLQueryItem(name: "device_id", value: deviceUDID),
+            URLQueryItem(name: "device_name", value: UIDevice.current.name),
+            URLQueryItem(name: "app_version", value: Self.currentAppVersion)
         ]
 
         guard let requestURL = components?.url else {
