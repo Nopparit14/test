@@ -12,7 +12,10 @@ struct PatchLibraryItem: Identifiable {
     var displayName: String {
         let filename = packageURL.deletingPathExtension().lastPathComponent
         if filename.hasPrefix("OGIOS File (") {
-            return filename
+            return filename.replacingOccurrences(of: "OGIOS File (", with: "XSTH (")
+        }
+        if filename.hasPrefix("XSTH File (") {
+            return filename.replacingOccurrences(of: "XSTH File (", with: "XSTH (")
         }
         return project?.name ?? filename
     }
@@ -431,14 +434,30 @@ final class CloudPatchManager: ObservableObject {
         guard let root = try? PatchProjectLibrary.packageRootURL() else { return 0 }
         var updated = 0
 
+        func normName(_ raw: String) -> String {
+            raw.lowercased()
+                .replacingOccurrences(of: "ogios file", with: "xsth")
+                .replacingOccurrences(of: "xsth file", with: "xsth")
+                .replacingOccurrences(of: " ", with: "")
+        }
+
         for patch in patches {
             let targetURL = root.appendingPathComponent(patch.targetFilename)
             var needsDownload = true
+            let normRemote = normName(patch.targetFilename)
+            var existingTargetURL = targetURL
 
-            if FileManager.default.fileExists(atPath: targetURL.path) {
-                if let localHash = Self.sha256(for: targetURL),
-                   localHash.caseInsensitiveCompare(patch.fileHash) == .orderedSame {
-                    needsDownload = false
+            if let existingFiles = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) {
+                for file in existingFiles {
+                    let normLocal = normName(file.lastPathComponent)
+                    if normLocal == normRemote {
+                        existingTargetURL = file
+                        if let localHash = Self.sha256(for: file),
+                           localHash.caseInsensitiveCompare(patch.fileHash) == .orderedSame {
+                            needsDownload = false
+                        }
+                        break
+                    }
                 }
             }
 
@@ -447,6 +466,9 @@ final class CloudPatchManager: ObservableObject {
                     var req = URLRequest(url: dlURL)
                     req.timeoutInterval = 30
                     let (tempURL, _) = try await URLSession.shared.download(for: req)
+                    if FileManager.default.fileExists(atPath: existingTargetURL.path) {
+                        try? FileManager.default.removeItem(at: existingTargetURL)
+                    }
                     if FileManager.default.fileExists(atPath: targetURL.path) {
                         try? FileManager.default.removeItem(at: targetURL)
                     }

@@ -292,7 +292,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Aim Drag",
                     target: "FREE FIRE • NORMAL",
-                    package: "XSTH.3105",
+                    package: "XSTH (6).3105",
                     icon: "scope",
                     accentColor: neonCyan,
                     isEnabled: $aimDragEnabled
@@ -301,7 +301,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Aim Neck",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (7).3105",
+                    package: "XSTH (7).3105",
                     icon: "person.crop.circle.badge.checkmark",
                     accentColor: Color(red: 0.1, green: 0.7, blue: 1.0),
                     isEnabled: $aimNeckEnabled
@@ -310,7 +310,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Antenna Position",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (8).3105",
+                    package: "XSTH (8).3105",
                     icon: "antenna.radiowaves.left.and.right",
                     accentColor: Color(red: 0.25, green: 0.75, blue: 1.0),
                     isEnabled: $hspeitoffEnabled
@@ -319,7 +319,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "144 FPS Unlock",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (10).3105",
+                    package: "XSTH (10).3105",
                     icon: "speedometer",
                     accentColor: Color(red: 0.2, green: 0.85, blue: 0.6),
                     isEnabled: $hyperBalamagicaEnabled
@@ -328,7 +328,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Aim Body",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (12).3105",
+                    package: "XSTH (12).3105",
                     icon: "figure.stand",
                     accentColor: Color(red: 0.15, green: 0.65, blue: 1.0),
                     isEnabled: $aimBodyPackageEnabled
@@ -337,7 +337,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Aim Chest",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (2).3105",
+                    package: "XSTH (2).3105",
                     icon: "shield.lefthalf.filled",
                     accentColor: Color(red: 0.3, green: 0.75, blue: 1.0),
                     isEnabled: $aimChestPackageEnabled
@@ -346,7 +346,7 @@ struct ContentView: View {
                 modernPatchToggleRow(
                     name: "Magic Bullet",
                     target: "FREE FIRE • NORMAL",
-                    package: "OGIOS File (14).3105",
+                    package: "XSTH (14).3105",
                     icon: "wand.and.stars",
                     accentColor: Color(red: 0.4, green: 0.6, blue: 1.0),
                     isEnabled: $magicEnabled
@@ -547,20 +547,30 @@ struct ContentView: View {
 
 
     // MARK: - Logic
+    private func normalizePatchName(_ name: String) -> String {
+        let stripped = (name as NSString).deletingPathExtension.lowercased()
+        return stripped
+            .replacingOccurrences(of: "ogios file", with: "xsth")
+            .replacingOccurrences(of: "xsth file", with: "xsth")
+            .replacingOccurrences(of: " ", with: "")
+    }
+
     private func syncPatchStates() {
-        aimDragEnabled = isPatchActive("OGIOS File (6).3105")
-        aimNeckEnabled = isPatchActive("OGIOS File (7).3105")
-        hspeitoffEnabled = isPatchActive("OGIOS File (8).3105")
-        hyperBalamagicaEnabled = isPatchActive("OGIOS File (10).3105")
-        aimBodyPackageEnabled = isPatchActive("OGIOS File (12).3105")
-        aimChestPackageEnabled = isPatchActive("OGIOS File (2).3105")
-        magicEnabled = isPatchActive("OGIOS File (14).3105")
+        aimDragEnabled = isPatchActive("XSTH (6).3105") || isPatchActive("XSTH.3105")
+        aimNeckEnabled = isPatchActive("XSTH (7).3105")
+        hspeitoffEnabled = isPatchActive("XSTH (8).3105")
+        hyperBalamagicaEnabled = isPatchActive("XSTH (10).3105")
+        aimBodyPackageEnabled = isPatchActive("XSTH (12).3105")
+        aimChestPackageEnabled = isPatchActive("XSTH (2).3105")
+        magicEnabled = isPatchActive("XSTH (14).3105")
     }
 
     private func findPatchItem(for packageFilename: String) -> PatchLibraryItem? {
+        let targetNorm = normalizePatchName(packageFilename)
         if let found = patchStore.items.first(where: {
             $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame ||
-            $0.packageURL.deletingPathExtension().lastPathComponent.caseInsensitiveCompare((packageFilename as NSString).deletingPathExtension) == .orderedSame
+            $0.packageURL.deletingPathExtension().lastPathComponent.caseInsensitiveCompare((packageFilename as NSString).deletingPathExtension) == .orderedSame ||
+            normalizePatchName($0.packageURL.lastPathComponent) == targetNorm
         }) {
             return found
         }
@@ -568,7 +578,8 @@ struct ContentView: View {
         patchStore.reload()
         return patchStore.items.first(where: {
             $0.packageURL.lastPathComponent.caseInsensitiveCompare(packageFilename) == .orderedSame ||
-            $0.packageURL.deletingPathExtension().lastPathComponent.caseInsensitiveCompare((packageFilename as NSString).deletingPathExtension) == .orderedSame
+            $0.packageURL.deletingPathExtension().lastPathComponent.caseInsensitiveCompare((packageFilename as NSString).deletingPathExtension) == .orderedSame ||
+            normalizePatchName($0.packageURL.lastPathComponent) == targetNorm
         })
     }
 
@@ -584,15 +595,21 @@ struct ContentView: View {
     }
 
     private func setPatchState(for packageFilename: String, enabled: Bool) {
-        switch packageFilename {
-        case "XSTH.3105", "OGIOS File (6).3105": aimDragEnabled = enabled
-        case "OGIOS File (7).3105": aimNeckEnabled = enabled
-        case "OGIOS File (8).3105": hspeitoffEnabled = enabled
-        case "OGIOS File (10).3105": hyperBalamagicaEnabled = enabled
-        case "OGIOS File (12).3105": aimBodyPackageEnabled = enabled
-        case "OGIOS File (2).3105": aimChestPackageEnabled = enabled
-        case "OGIOS File (14).3105": magicEnabled = enabled
-        default: break
+        let norm = normalizePatchName(packageFilename)
+        if norm.contains("(6)") || norm == "xsth" {
+            aimDragEnabled = enabled
+        } else if norm.contains("(7)") {
+            aimNeckEnabled = enabled
+        } else if norm.contains("(8)") {
+            hspeitoffEnabled = enabled
+        } else if norm.contains("(10)") {
+            hyperBalamagicaEnabled = enabled
+        } else if norm.contains("(12)") {
+            aimBodyPackageEnabled = enabled
+        } else if norm.contains("(2)") {
+            aimChestPackageEnabled = enabled
+        } else if norm.contains("(14)") {
+            magicEnabled = enabled
         }
     }
 

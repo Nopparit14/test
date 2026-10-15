@@ -1930,16 +1930,17 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
             <label>ไฟล์เป้าหมายในแอป (Target Filename)</label>
             <div style="display:flex;gap:8px">
               <input class="input" name="target_filename" id="targetFilenameInput" placeholder="เช่น XSTH.3105" required>
-              <select class="input" style="width:190px" onchange="if(this.value){document.getElementById('targetFilenameInput').value=this.value;}">
-                <option value="">-- เลือกจากสูตรหลัก --</option>
-                <option value="XSTH.3105">XSTH.3105 (Aim Drag)</option>
-                <option value="OGIOS File (6).3105">OGIOS File (6).3105</option>
-                <option value="OGIOS File (7).3105">OGIOS File (7).3105 (Aim Neck)</option>
-                <option value="OGIOS File (8).3105">OGIOS File (8).3105 (HS Peit Off)</option>
-                <option value="OGIOS File (10).3105">OGIOS File (10).3105 (144 FPS)</option>
-                <option value="OGIOS File (12).3105">OGIOS File (12).3105 (Aim Body)</option>
-                <option value="OGIOS File (2).3105">OGIOS File (2).3105 (Aim Chest)</option>
-                <option value="OGIOS File (14).3105">OGIOS File (14).3105 (Magic Bullet)</option>
+              <select class="input" style="width:210px" onchange="if(this.value){document.getElementById('targetFilenameInput').value=this.value;}">
+                <option value="">-- เลือกจากสูตรหลัก (XSTH) --</option>
+                <option value="XSTH (6).3105">XSTH (6).3105 (Aim Drag)</option>
+                <option value="XSTH (7).3105">XSTH (7).3105 (Aim Neck)</option>
+                <option value="XSTH (8).3105">XSTH (8).3105 (Antenna / Peit Off)</option>
+                <option value="XSTH (10).3105">XSTH (10).3105 (144 FPS Unlock)</option>
+                <option value="XSTH (12).3105">XSTH (12).3105 (Aim Body)</option>
+                <option value="XSTH (2).3105">XSTH (2).3105 (Aim Chest)</option>
+                <option value="XSTH (14).3105">XSTH (14).3105 (Magic Bullet)</option>
+                <option value="XSTH.3105">XSTH.3105 (Master Bypass)</option>
+                <option value="OGIOS File (6).3105">OGIOS File (6).3105 (Legacy)</option>
               </select>
             </div>
             <span class="hint">ต้องตรงกับชื่อไฟล์สูตรที่แอปเรียกใช้ (นามสกุล .3105)</span>
