@@ -140,9 +140,6 @@ struct PatchProjectsView: View {
                     draftCoordinator.clear()
                 }
             }
-            .sheet(item: $store.passwordRequest, onDismiss: store.cancelUnlock) { _ in
-                PatchUnlockView(store: store)
-            }
             .alert(item: $store.alert) { alert in
                 Alert(
                     title: Text(language.text(alert.titleKey)),

@@ -67,9 +67,6 @@ struct ContentView: View {
         .sheet(isPresented: $showCleaner) {
             CleanerView()
         }
-        .sheet(item: $patchStore.passwordRequest, onDismiss: patchStore.cancelUnlock) { _ in
-            PatchUnlockPrompt(store: patchStore)
-        }
         .onAppear {
             licenseManager.fetchRemoteConfig()
             syncPatchStates()
@@ -669,10 +666,9 @@ struct ContentView: View {
                         }
                     }
                     guard let project = targetProject else {
-                        result = .unavailable("ENTER PACKAGE PASSWORD")
+                        result = .unavailable("ERROR — PACKAGE IS LOCKED")
                         DispatchQueue.main.async {
-                            self.patchStore.requestUnlock(for: item)
-                            self.patchMessage = "ENTER PACKAGE PASSWORD"
+                            self.patchMessage = "PACKAGE LOCKED (PASSWORD REQUIRED)"
                             self.patchOperationBusy = false
                         }
                         return
@@ -717,48 +713,6 @@ private enum PatchAudioFeedback {
     }
 }
 
-private struct PatchUnlockPrompt: View {
-    @Environment(\.dismiss) private var dismiss
-    @ObservedObject var store: PatchProjectStore
-    @State private var password = ""
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    SecureField("Package password", text: $password)
-                        .textContentType(.password)
-                        .submitLabel(.done)
-                        .onSubmit(unlock)
-                        .onChange(of: password) { _ in store.clearUnlockError() }
-                    if let errorKey = store.unlockErrorKey {
-                        Text(AppLanguage.english.text(errorKey))
-                            .font(.footnote)
-                            .foregroundStyle(.red)
-                    }
-                } footer: {
-                    Text("Enter the password once to unlock this OGIOS package on this device.")
-                }
-            }
-            .navigationTitle("Unlock package")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Unlock", action: unlock)
-                        .disabled(password.isEmpty || store.isBusy)
-                }
-            }
-        }
-    }
-
-    private func unlock() {
-        guard !password.isEmpty else { return }
-        store.unlock(password: password)
-    }
-}
 
 struct AnimatedHyperBackdrop: View {
     @State private var animate = false
