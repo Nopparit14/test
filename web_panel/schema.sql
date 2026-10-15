@@ -166,8 +166,26 @@ ALTER TABLE `licenses`
 --
 -- AUTO_INCREMENT for table `resellers`
 --
-ALTER TABLE `resellers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+--
+-- Table structure for table `cloud_patches`
+--
+
+CREATE TABLE IF NOT EXISTS `cloud_patches` (
+  `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `patch_name` varchar(100) NOT NULL,
+  `target_filename` varchar(100) NOT NULL,
+  `version` varchar(32) NOT NULL DEFAULT '1.0',
+  `file_path` varchar(255) NOT NULL,
+  `file_size` bigint(20) NOT NULL DEFAULT 0,
+  `file_hash` varchar(64) NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `downloads_count` int(11) NOT NULL DEFAULT 0,
+  `created_at` datetime DEFAULT current_timestamp(),
+  `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  UNIQUE KEY `uniq_target` (`target_filename`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

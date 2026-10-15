@@ -471,13 +471,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $alert = "ลบตัวแทนจำหน่ายเรียบร้อยแล้ว (คีย์ที่สร้างไว้ยังคงอยู่ในระบบ)";
         }
     }
+
+    // 14. UPLOAD CLOUD PATCH (OTA)
+    if ($action === 'upload_cloud_patch' && $isAdmin) {
+        ensureCloudPatchesTable($pdo);
+        $patchName = trim($_POST['patch_name'] ?? '');
+        $targetFilename = trim($_POST['target_filename'] ?? '');
+        $version = trim($_POST['version'] ?? '1.0');
+        $description = trim($_POST['description'] ?? '');
+
+        if (empty($patchName) || empty($targetFilename)) {
+            $alert = "กรุณากรอกชื่อแพตช์และชื่อไฟล์เป้าหมาย (Target Filename)";
+            $alertType = 'error';
+        } elseif (empty($_FILES['patch_file']['tmp_name']) || $_FILES['patch_file']['error'] !== UPLOAD_ERR_OK) {
+            $alert = "กรุณาเลือกไฟล์แพตช์ที่ต้องการอัปโหลด (.3105)";
+            $alertType = 'error';
+        } else {
+            $uploadDir = __DIR__ . '/uploads/patches/';
+            if (!is_dir($uploadDir)) {
+                @mkdir($uploadDir, 0777, true);
+            }
+
+            $origName = $_FILES['patch_file']['name'];
+            $ext = pathinfo($origName, PATHINFO_EXTENSION);
+            if (empty($ext)) $ext = '3105';
+
+            $safeTarget = preg_replace('/[^a-zA-Z0-9_\-\.\(\)\s]/', '', $targetFilename);
+            if (empty($safeTarget)) $safeTarget = 'patch.3105';
+            if (!preg_match('/\.3105$/i', $safeTarget) && !preg_match('/\.(ogios|dat|bin)$/i', $safeTarget)) {
+                $safeTarget .= '.3105';
+            }
+
+            $storageFilename = 'patch_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $destPath = $uploadDir . $storageFilename;
+            $relativeDbPath = 'uploads/patches/' . $storageFilename;
+
+            if (move_uploaded_file($_FILES['patch_file']['tmp_name'], $destPath)) {
+                $fileSize = filesize($destPath);
+                $fileHash = hash_file('sha256', $destPath);
+
+                // Upsert to cloud_patches
+                $stmt = $pdo->prepare("INSERT INTO `cloud_patches` (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `is_active`)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                    ON DUPLICATE KEY UPDATE 
+                        `patch_name` = VALUES(`patch_name`),
+                        `version` = VALUES(`version`),
+                        `file_path` = VALUES(`file_path`),
+                        `file_size` = VALUES(`file_size`),
+                        `file_hash` = VALUES(`file_hash`),
+                        `description` = VALUES(`description`),
+                        `is_active` = 1,
+                        `updated_at` = NOW()");
+                $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description]);
+
+                $alert = "อัปโหลดและเปิดใช้งาน Cloud Patch '{$safeTarget}' (v{$version}) เรียบร้อยแล้ว!";
+            } else {
+                $alert = "ไม่สามารถบันทึกไฟล์อัปโหลดลงบนเซิร์ฟเวอร์ได้ ตรวจสอบสิทธิ์โฟลเดอร์ uploads/";
+                $alertType = 'error';
+            }
+        }
+    }
+
+    // 15. TOGGLE CLOUD PATCH
+    if ($action === 'toggle_cloud_patch' && $isAdmin) {
+        $pId = (int)($_POST['patch_id'] ?? 0);
+        $state = (int)($_POST['state'] ?? 0);
+        if ($pId > 0) {
+            $pdo->prepare("UPDATE `cloud_patches` SET `is_active` = ? WHERE `id` = ?")->execute([$state, $pId]);
+            $alert = $state ? "เปิดใช้งาน Cloud Patch เรียบร้อย" : "ปิดการใช้งาน Cloud Patch ชั่วคราว";
+        }
+    }
+
+    // 16. DELETE CLOUD PATCH
+    if ($action === 'delete_cloud_patch' && $isAdmin) {
+        $pId = (int)($_POST['patch_id'] ?? 0);
+        if ($pId > 0) {
+            $stmt = $pdo->prepare("SELECT `file_path` FROM `cloud_patches` WHERE `id` = ?");
+            $stmt->execute([$pId]);
+            $fp = $stmt->fetchColumn();
+            if ($fp && file_exists(__DIR__ . '/' . ltrim($fp, '/\\'))) {
+                @unlink(__DIR__ . '/' . ltrim($fp, '/\\'));
+            }
+            $pdo->prepare("DELETE FROM `cloud_patches` WHERE `id` = ?")->execute([$pId]);
+            $alert = "ลบ Cloud Patch เรียบร้อยแล้ว";
+        }
+    }
 }
 
 // ----------------- DATA QUERIES & ROUTING -----------------
 $tab = $_GET['tab'] ?? 'dashboard';
 
 if ($isAdmin) {
-    $validTabs = ['dashboard', 'licenses', 'generator', 'devices', 'resellers', 'remote', 'logs', 'settings'];
+    $validTabs = ['dashboard', 'licenses', 'generator', 'devices', 'resellers', 'remote', 'patches', 'logs', 'settings'];
 } else {
     $validTabs = ['dashboard', 'licenses', 'generator', 'devices'];
 }
@@ -616,6 +701,10 @@ function getResellerExpiryBadge($expiresAt) {
 }
 
 $sysSettings = ($isAdmin && $tab === 'remote') ? getSystemSettings($pdo) : [];
+$cloudPatches = ($isAdmin && $tab === 'patches') ? (function() use ($pdo) {
+    ensureCloudPatchesTable($pdo);
+    return $pdo->query("SELECT * FROM `cloud_patches` ORDER BY `id` DESC")->fetchAll();
+})() : [];
 
 $pageTitles = [
     'dashboard' => ['Dashboard', $isAdmin ? 'ภาพรวมระบบและสถิติคีย์ทั้งหมด' : 'ภาพรวมบัญชีตัวแทนและสถิติคีย์ของคุณ'],
@@ -624,6 +713,7 @@ $pageTitles = [
     'devices'   => ['อุปกรณ์', 'อุปกรณ์ที่ผูกกับคีย์ (Hardware ID)'],
     'resellers' => ['ตัวแทน', 'จัดการตัวแทนจำหน่าย วันหมดอายุ และเครดิต'],
     'remote'    => ['Remote Control', 'สวิตช์ฉุกเฉิน ประกาศเข้าแอป และบังคับอัปเดตเวอร์ชั่น'],
+    'patches'   => ['Cloud Patches (OTA)', 'จัดการไฟล์แพตช์สูตร (.3105) อัปเดตไปยังแอปของลูกค้าอัตโนมัติ'],
     'logs'      => ['Activity Logs', 'บันทึกความปลอดภัยและการใช้งาน'],
     'settings'  => ['ตั้งค่า', 'ความปลอดภัยและการเชื่อมต่อ API'],
 ];
@@ -1206,6 +1296,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
     <div class="nav-gap"></div>
     <a href="index.php?tab=resellers" class="<?= $tab==='resellers'?'active':'' ?>"><i class="fa-solid fa-users"></i>ตัวแทน<span class="n"><?= (int)$totalResellers ?></span></a>
     <a href="index.php?tab=remote" class="<?= $tab==='remote'?'active':'' ?>"><i class="fa-solid fa-tower-broadcast"></i>Remote Control</a>
+    <a href="index.php?tab=patches" class="<?= $tab==='patches'?'active':'' ?>"><i class="fa-solid fa-cloud-arrow-up"></i>Cloud Patches (OTA)</a>
     <a href="index.php?tab=logs" class="<?= $tab==='logs'?'active':'' ?>"><i class="fa-solid fa-clock-rotate-left"></i>Activity Logs</a>
     <a href="index.php?tab=settings" class="<?= $tab==='settings'?'active':'' ?>"><i class="fa-solid fa-gear"></i>ตั้งค่า</a>
     <?php endif; ?>
@@ -1602,6 +1693,167 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
           <pre class="mono" style="font-size:12px;background:var(--bg);padding:12px;border-radius:8px;overflow-x:auto;margin:8px 0 12px"><?= e($apiEndpointURL) ?>?action=remote_config&amp;app_version=1.1.0</pre>
           <div class="dim">ค่า <span class="mono">status</span> ที่แอปต้องรองรับ: <span class="mono">maintenance</span> (ล็อกแอป + แสดง message), <span class="mono">update_required</span> (แสดงปุ่มโหลด IPA จาก <span class="mono">remote_config.version_control.download_url</span>), <span class="mono">success</span> / <span class="mono">error</span>. ส่ง <span class="mono">app_version</span> ทุกครั้งที่เรียก API เพื่อให้เซิร์ฟเวอร์เช็กเวอร์ชั่นให้</div>
         </div></div>
+    </div>
+
+  <?php elseif ($tab === 'patches' && $isAdmin): ?>
+    <?php
+      $totalCloudPatches = count($cloudPatches);
+      $activeCloudPatches = count(array_filter($cloudPatches, fn($p) => (int)$p['is_active'] === 1));
+      $totalCloudDownloads = array_sum(array_column($cloudPatches, 'downloads_count'));
+    ?>
+    <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="stat"><div class="stat-top"><span>ไฟล์แพตช์ทั้งหมด</span><div class="stat-icon"><i class="fa-solid fa-file-code"></i></div></div><b><?= number_format($totalCloudPatches) ?></b><small>รายการแพตช์ในระบบ</small></div>
+      <div class="stat"><div class="stat-top"><span>เปิดใช้งาน (Active OTA)</span><div class="stat-icon"><i class="fa-solid fa-cloud-arrow-down" style="color:#4ade80"></i></div></div><b style="color:#4ade80"><?= number_format($activeCloudPatches) ?></b><small>แอปสามารถซิงค์ได้ทันที</small></div>
+      <div class="stat"><div class="stat-top"><span>ยอดดาวน์โหลดรวม</span><div class="stat-icon"><i class="fa-solid fa-download" style="color:#60a5fa"></i></div></div><b style="color:#60a5fa"><?= number_format($totalCloudDownloads) ?></b><small>ครั้งที่แอปซิงค์ไฟล์สำเร็จ</small></div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:20px;align-items:start">
+      <!-- Upload Card -->
+      <div class="card">
+        <div class="card-head">
+          <h3><i class="fa-solid fa-cloud-arrow-up"></i>อัปโหลดสูตรใหม่ (.3105) ขึ้น Cloud OTA</h3>
+        </div>
+        <form method="POST" enctype="multipart/form-data" class="card-body">
+          <input type="hidden" name="action" value="upload_cloud_patch">
+
+          <div class="field">
+            <label>ไฟล์เป้าหมายในแอป (Target Filename)</label>
+            <div style="display:flex;gap:8px">
+              <input class="input" name="target_filename" id="targetFilenameInput" placeholder="เช่น XSTH.3105" required>
+              <select class="input" style="width:190px" onchange="if(this.value){document.getElementById('targetFilenameInput').value=this.value;}">
+                <option value="">-- เลือกจากสูตรหลัก --</option>
+                <option value="XSTH.3105">XSTH.3105 (Aim Drag)</option>
+                <option value="OGIOS File (6).3105">OGIOS File (6).3105</option>
+                <option value="OGIOS File (7).3105">OGIOS File (7).3105 (Aim Neck)</option>
+                <option value="OGIOS File (8).3105">OGIOS File (8).3105 (HS Peit Off)</option>
+                <option value="OGIOS File (10).3105">OGIOS File (10).3105 (144 FPS)</option>
+                <option value="OGIOS File (12).3105">OGIOS File (12).3105 (Aim Body)</option>
+                <option value="OGIOS File (2).3105">OGIOS File (2).3105 (Aim Chest)</option>
+                <option value="OGIOS File (14).3105">OGIOS File (14).3105 (Magic Bullet)</option>
+              </select>
+            </div>
+            <span class="hint">ต้องตรงกับชื่อไฟล์สูตรที่แอปเรียกใช้ (นามสกุล .3105)</span>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label>ชื่อแพตช์ / สูตร</label>
+              <input class="input" name="patch_name" placeholder="เช่น Aim Drag Headshot v2.0" required>
+            </div>
+            <div class="field">
+              <label>เลขเวอร์ชั่น</label>
+              <input class="input" name="version" placeholder="1.0" value="1.0" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>รายละเอียด / สิ่งที่ปรับปรุง (Changelog)</label>
+            <textarea class="input" name="description" placeholder="เช่น ปรับปรุงสูตรดึงหัวตามแพตช์ใหม่ของเกม..."></textarea>
+          </div>
+
+          <div class="field">
+            <label>เลือกไฟล์สูตร (.3105, .ogios, .dat)</label>
+            <input type="file" name="patch_file" class="input" accept=".3105,.ogios,.dat,.bin" required>
+          </div>
+
+          <button class="btn btn-primary" style="width:100%"><i class="fa-solid fa-upload"></i> อัปโหลดและกระจายแพตช์ (Publish OTA)</button>
+        </form>
+      </div>
+
+      <!-- OTA Guide Card -->
+      <div class="card">
+        <div class="card-head">
+          <h3><i class="fa-solid fa-circle-info"></i>การทำงานของ Cloud OTA</h3>
+        </div>
+        <div class="card-body">
+          <p class="dim" style="line-height:1.6;margin-bottom:14px">
+            ระบบ <b>Cloud Patches OTA</b> ช่วยให้คุณสามารถแก้สูตรและส่งไปยังแอปของลูกค้าทุกคนได้ในคลิกเดียว โดยลูกค้า<b>ไม่ต้องดาวน์โหลดหรือติดตั้งแอป (.ipa) ใหม่</b>
+          </p>
+          <div class="sum-row"><span>1. เช็คอัตโนมัติ</span><b>เมื่อเปิดแอปหรือกดเช็ค</b></div>
+          <div class="sum-row"><span>2. ตรวจสอบ SHA256</span><b>เทียบความต่างของไฟล์</b></div>
+          <div class="sum-row"><span>3. ดาวน์โหลดเบื้องหลัง</span><b>เซฟทับไฟล์เดิมทันที</b></div>
+          <div class="sum-row"><span>4. มีผลทันที</span><b>สูตรในแอปอัปเดตสด</b></div>
+
+          <div style="margin-top:16px">
+            <div class="dim" style="margin-bottom:6px">API Endpoint สำหรับดึงรายการสูตร:</div>
+            <pre class="mono" style="font-size:12px;background:var(--bg);padding:10px;border-radius:8px;overflow-x:auto"><?= e($apiEndpointURL) ?>?action=list_patches</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Patches List Table Card -->
+    <div class="card">
+      <div class="card-head">
+        <h3><i class="fa-solid fa-list-check"></i>รายการสูตรบน Cloud OTA (<?= count($cloudPatches) ?>)</h3>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="table-wrap">
+          <table class="responsive">
+            <thead>
+              <tr>
+                <th>ไฟล์เป้าหมาย (Target)</th>
+                <th>ชื่อสูตร &amp; เวอร์ชั่น</th>
+                <th>ขนาดไฟล์</th>
+                <th>SHA-256 Checksum</th>
+                <th>ยอดดาวน์โหลด</th>
+                <th>อัปเดตล่าสุด</th>
+                <th>สถานะ</th>
+                <th style="text-align:right">จัดการ</th>
+              </tr>
+            </thead>
+            <tbody>
+            <?php if (empty($cloudPatches)): ?>
+              <tr><td colspan="8" class="empty" style="text-align:center;padding:32px;color:var(--muted)">ยังไม่มีไฟล์สูตรบน Cloud OTA — อัปโหลดไฟล์แรกของคุณด้านบนได้เลย</td></tr>
+            <?php else: foreach ($cloudPatches as $cp): ?>
+              <tr>
+                <td data-label="เป้าหมาย">
+                  <span class="mono" style="font-weight:700;color:#fff;background:#171717;padding:4px 8px;border-radius:6px;border:1px solid var(--line-strong)">
+                    <?= e($cp['target_filename']) ?>
+                  </span>
+                </td>
+                <td data-label="ชื่อสูตร">
+                  <b><?= e($cp['patch_name']) ?></b>
+                  <span class="pill" style="margin-left:6px;background:rgba(59,130,246,0.15);color:#60a5fa">v<?= e($cp['version']) ?></span>
+                  <?php if (!empty($cp['description'])): ?>
+                    <small class="dim" style="display:block"><?= e($cp['description']) ?></small>
+                  <?php endif; ?>
+                </td>
+                <td data-label="ขนาด" class="mono"><?= number_format($cp['file_size'] / 1024, 1) ?> KB</td>
+                <td data-label="SHA256">
+                  <span class="mono dim" style="font-size:11px" title="<?= e($cp['file_hash']) ?>">
+                    <?= substr($cp['file_hash'], 0, 10) ?>...<?= substr($cp['file_hash'], -8) ?>
+                  </span>
+                  <button type="button" class="btn btn-sm" style="height:24px;padding:0 6px;margin-left:4px" onclick="copyText('<?= e($cp['file_hash']) ?>', 'คัดลอก Checksum แล้ว')" title="คัดลอก Hash"><i class="fa-regular fa-copy"></i></button>
+                </td>
+                <td data-label="ดาวน์โหลด" class="mono"><i class="fa-solid fa-arrow-down" style="color:var(--muted);font-size:11px"></i> <?= number_format($cp['downloads_count']) ?></td>
+                <td data-label="อัปเดต" class="dim" style="font-size:12px"><?= date('d/m/Y H:i', strtotime($cp['updated_at'])) ?></td>
+                <td data-label="สถานะ">
+                  <form method="POST" style="display:inline">
+                    <input type="hidden" name="action" value="toggle_cloud_patch">
+                    <input type="hidden" name="patch_id" value="<?= (int)$cp['id'] ?>">
+                    <input type="hidden" name="state" value="<?= (int)$cp['is_active'] ? '0' : '1' ?>">
+                    <button class="pill" style="cursor:pointer;border:none;background:<?= (int)$cp['is_active'] ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' ?>;color:<?= (int)$cp['is_active'] ? '#4ade80' : '#f87171' ?>">
+                      <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px"></i> <?= (int)$cp['is_active'] ? 'เปิด OTA' : 'ปิดชั่วคราว' ?>
+                    </button>
+                  </form>
+                </td>
+                <td data-label="จัดการ" style="text-align:right">
+                  <div style="display:inline-flex;gap:6px">
+                    <a href="api.php?action=download_patch&id=<?= (int)$cp['id'] ?>" class="btn btn-sm" title="ทดสอบดาวน์โหลด"><i class="fa-solid fa-download"></i></a>
+                    <form method="POST" onsubmit="return requestActionConfirm(event, this, 'ลบไฟล์สูตร <?= e($cp['target_filename']) ?>?', 'ไฟล์แพตช์นี้จะถูกลบออกจากเซิร์ฟเวอร์อย่างถาวร', 'fa-solid fa-trash', true, 'ลบแพตช์')">
+                      <input type="hidden" name="action" value="delete_cloud_patch">
+                      <input type="hidden" name="patch_id" value="<?= (int)$cp['id'] ?>">
+                      <button class="btn btn-sm btn-danger" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <?php endforeach; endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
   <?php elseif ($tab === 'settings' && $isAdmin): ?>

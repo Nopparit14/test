@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showCleaner = false
     @StateObject private var patchStore = PatchProjectStore()
+    @StateObject private var cloudPatchManager = CloudPatchManager.shared
     @State private var patchOperationBusy = false
     @State private var patchMessage = "SYSTEM READY — TOGGLE TO ACTIVATE"
     
@@ -47,6 +48,7 @@ struct ContentView: View {
                 VStack(spacing: 20) {
                     brandHeader
                     deviceHUDPanel
+                    cloudOTABar
                     patchOptionsSection
                     gameLaunchPanel
                     footerStatus
@@ -71,12 +73,24 @@ struct ContentView: View {
         .onAppear {
             licenseManager.fetchRemoteConfig()
             syncPatchStates()
+            cloudPatchManager.syncPatches { updatedCount in
+                if updatedCount > 0 {
+                    patchStore.reload()
+                    syncPatchStates()
+                }
+            }
         }
         .onChange(of: scenePhase) { phase in
             guard phase == .active, !patchOperationBusy else { return }
             licenseManager.fetchRemoteConfig()
             syncPatchStates()
             patchMessage = "SYSTEM READY — TOGGLE TO ACTIVATE"
+            cloudPatchManager.syncPatches { updatedCount in
+                if updatedCount > 0 {
+                    patchStore.reload()
+                    syncPatchStates()
+                }
+            }
         }
     }
 
@@ -195,6 +209,55 @@ struct ContentView: View {
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Cloud OTA Status Bar
+    private var cloudOTABar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: cloudPatchManager.isSyncing ? "arrow.triangle.2.circlepath" : "cloud.fill")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(cloudPatchManager.isSyncing ? Color.yellow : neonCyan)
+
+            Text(cloudPatchManager.syncStatusMessage)
+                .font(.system(size: 10, weight: .bold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
+
+            Spacer()
+
+            Button {
+                cloudPatchManager.syncPatches { count in
+                    if count > 0 {
+                        patchStore.reload()
+                        syncPatchStates()
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 8, weight: .black))
+                    Text(cloudPatchManager.isSyncing ? "SYNCING..." : "CHECK OTA")
+                        .font(.system(size: 8, weight: .heavy, design: .rounded))
+                }
+                .foregroundStyle(neonCyan)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(electricBlue.opacity(0.2), in: Capsule())
+                .overlay(Capsule().stroke(neonCyan.opacity(0.5), lineWidth: 0.8))
+            }
+            .buttonStyle(.plain)
+            .disabled(cloudPatchManager.isSyncing)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(red: 0.05, green: 0.08, blue: 0.15).opacity(0.75))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(neonCyan.opacity(0.25), lineWidth: 1)
         )
     }
 

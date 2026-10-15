@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct PatchLibraryItem: Identifiable {
     let summary: PatchPackageSummary
@@ -309,5 +310,154 @@ enum PatchProjectLibrary {
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .prefix(80)
         return result.isEmpty ? "Patch" : String(result)
+    }
+}
+
+// MARK: - ☁️ Cloud Patches OTA Manager
+@MainActor
+final class CloudPatchManager: ObservableObject {
+    static let shared = CloudPatchManager()
+
+    struct RemotePatch: Codable, Identifiable {
+        let id: Int
+        let patchName: String
+        let targetFilename: String
+        let version: String
+        let fileSize: Int
+        let fileHash: String
+        let description: String?
+        let downloadUrl: String
+        let updatedAt: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case patchName = "patch_name"
+            case targetFilename = "target_filename"
+            case version
+            case fileSize = "file_size"
+            case fileHash = "file_hash"
+            case description
+            case downloadUrl = "download_url"
+            case updatedAt = "updated_at"
+        }
+    }
+
+    struct ListPatchesResponse: Codable {
+        let status: String
+        let count: Int
+        let patches: [RemotePatch]
+    }
+
+    @Published var isSyncing = false
+    @Published var syncStatusMessage = "CLOUD OTA READY"
+    @Published var lastSyncTime: Date? = nil
+    @Published var updatedPatchesCount: Int = 0
+
+    private let sessionDelegate = SSLBypassSessionDelegate()
+
+    init() {}
+
+    // Calculate SHA256 of local file using CryptoKit
+    static func sha256(for fileURL: URL) -> String? {
+        guard let data = try? Data(contentsOf: fileURL) else { return nil }
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    // Main Sync Function
+    func syncPatches(completion: ((Int) -> Void)? = nil) {
+        guard !isSyncing else { return }
+        isSyncing = true
+        syncStatusMessage = "Checking Cloud Patches..."
+
+        guard let apiURL = URL(string: LicenseManager.apiURL) else {
+            isSyncing = false
+            completion?(0)
+            return
+        }
+
+        var components = URLComponents(url: apiURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "action", value: "list_patches"),
+            URLQueryItem(name: "app_version", value: LicenseManager.currentAppVersion)
+        ]
+
+        guard let listURL = components?.url else {
+            isSyncing = false
+            completion?(0)
+            return
+        }
+
+        var req = URLRequest(url: listURL)
+        req.httpMethod = "GET"
+        req.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        req.timeoutInterval = 12
+
+        let session = URLSession(configuration: .ephemeral, delegate: sessionDelegate, delegateQueue: nil)
+
+        session.dataTask(with: req) { [weak self] data, response, error in
+            guard let data = data,
+                  let res = try? JSONDecoder().decode(ListPatchesResponse.self, from: data),
+                  res.status == "success" else {
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.isSyncing = false
+                    self.syncStatusMessage = "Cloud Sync Offline"
+                    completion?(0)
+                }
+                return
+            }
+
+            Task {
+                let updatedCount = await self?.downloadOutdatedPatches(patches: res.patches) ?? 0
+                await MainActor.run {
+                    guard let self else { return }
+                    self.isSyncing = false
+                    self.lastSyncTime = Date()
+                    self.updatedPatchesCount = updatedCount
+                    if updatedCount > 0 {
+                        self.syncStatusMessage = "Updated \(updatedCount) formulas OTA"
+                    } else {
+                        self.syncStatusMessage = "Formulas up to date (OTA Synced)"
+                    }
+                    completion?(updatedCount)
+                }
+            }
+        }.resume()
+    }
+
+    // Check & download patches needing update
+    private func downloadOutdatedPatches(patches: [RemotePatch]) async -> Int {
+        guard let root = try? PatchProjectLibrary.packageRootURL() else { return 0 }
+        var updated = 0
+
+        for patch in patches {
+            let targetURL = root.appendingPathComponent(patch.targetFilename)
+            var needsDownload = true
+
+            if FileManager.default.fileExists(atPath: targetURL.path) {
+                if let localHash = Self.sha256(for: targetURL),
+                   localHash.caseInsensitiveCompare(patch.fileHash) == .orderedSame {
+                    needsDownload = false
+                }
+            }
+
+            if needsDownload, let dlURL = URL(string: patch.downloadUrl) {
+                do {
+                    var req = URLRequest(url: dlURL)
+                    req.timeoutInterval = 30
+                    let (tempURL, _) = try await URLSession.shared.download(for: req)
+                    if FileManager.default.fileExists(atPath: targetURL.path) {
+                        try? FileManager.default.removeItem(at: targetURL)
+                    }
+                    try FileManager.default.moveItem(at: tempURL, to: targetURL)
+                    updated += 1
+                    log("CloudPatch: successfully updated \(patch.targetFilename) (v\(patch.version))")
+                } catch {
+                    log("CloudPatch: failed downloading \(patch.targetFilename): \(error)")
+                }
+            }
+        }
+        return updated
     }
 }

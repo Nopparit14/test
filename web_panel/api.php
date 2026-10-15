@@ -88,6 +88,82 @@ if ($action === 'ping') {
     exit;
 }
 
+// ----------------- CLOUD PATCHES (OTA) ENDPOINTS -----------------
+if ($action === 'list_patches' || $action === 'patches') {
+    ensureCloudPatchesTable($pdo);
+    $stmt = $pdo->query("SELECT `id`, `patch_name`, `target_filename`, `version`, `file_size`, `file_hash`, `description`, `updated_at` FROM `cloud_patches` WHERE `is_active` = 1 ORDER BY `id` ASC");
+    $patches = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https://" : "http://";
+    $host = $_SERVER['HTTP_HOST'];
+    $uri = rtrim(dirname($_SERVER['PHP_SELF']), '/\\');
+    $baseURL = "{$protocol}{$host}{$uri}/api.php";
+
+    foreach ($patches as &$p) {
+        $p['download_url'] = "{$baseURL}?action=download_patch&id={$p['id']}";
+        $p['file_size'] = (int)$p['file_size'];
+        $p['id'] = (int)$p['id'];
+    }
+    unset($p);
+
+    echo json_encode([
+        'status' => 'success',
+        'count' => count($patches),
+        'patches' => $patches,
+        'server_time' => date('Y-m-d H:i:s')
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+if ($action === 'download_patch') {
+    ensureCloudPatchesTable($pdo);
+    $id = isset($input['id']) ? (int)$input['id'] : 0;
+    $target = trim($input['target'] ?? $input['filename'] ?? '');
+
+    if ($id > 0) {
+        $stmt = $pdo->prepare("SELECT * FROM `cloud_patches` WHERE `id` = ? AND `is_active` = 1 LIMIT 1");
+        $stmt->execute([$id]);
+    } else if (!empty($target)) {
+        $stmt = $pdo->prepare("SELECT * FROM `cloud_patches` WHERE `target_filename` = ? AND `is_active` = 1 LIMIT 1");
+        $stmt->execute([$target]);
+    } else {
+        http_response_code(400);
+        echo json_encode(['status' => 'error', 'message' => 'Missing patch id or target filename'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $patch = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$patch) {
+        http_response_code(404);
+        echo json_encode(['status' => 'error', 'message' => 'Patch not found or disabled'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $realFilePath = __DIR__ . '/' . ltrim($patch['file_path'], '/\\');
+    if (!file_exists($realFilePath)) {
+        http_response_code(404);
+        echo json_encode(['status' => 'error', 'message' => 'Physical file not found on server'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // Increment download counter
+    try {
+        $pdo->prepare("UPDATE `cloud_patches` SET `downloads_count` = `downloads_count` + 1 WHERE `id` = ?")->execute([$patch['id']]);
+    } catch (Exception $e) {}
+
+    // Stream the binary .3105 file
+    $downloadName = $patch['target_filename'];
+    header('Content-Description: File Transfer');
+    header('Content-Type: application/octet-stream');
+    header('Content-Disposition: attachment; filename="' . basename($downloadName) . '"');
+    header('Expires: 0');
+    header('Cache-Control: must-revalidate');
+    header('Pragma: public');
+    header('Content-Length: ' . filesize($realFilePath));
+    readfile($realFilePath);
+    exit;
+}
+
 // Check Emergency Kill-Switch before anything else
 if ($systemSettings['kill_switch_enabled'] === '1') {
     echo json_encode([
