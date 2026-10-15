@@ -594,6 +594,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $unlockPassword = trim($_POST['unlock_password'] ?? '');
 
+                    // Remove previous physical file on server if updating existing target_filename
+                    try {
+                        $oldStmt = $pdo->prepare("SELECT `file_path` FROM `cloud_patches` WHERE `target_filename` = ?");
+                        $oldStmt->execute([$safeTarget]);
+                        $oldFile = $oldStmt->fetchColumn();
+                        if ($oldFile) {
+                            $oldDiskPath = __DIR__ . '/' . ltrim($oldFile, '/\\');
+                            if (file_exists($oldDiskPath) && $oldDiskPath !== $destPath) {
+                                @unlink($oldDiskPath);
+                            }
+                        }
+                    } catch (Throwable $eDel) {}
+
                     // Upsert to cloud_patches with created_at and updated_at
                     $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
                         (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `is_active`, `created_at`, `updated_at`)
