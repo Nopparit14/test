@@ -1,4 +1,4 @@
-import SwiftUI
+Reset Accimport SwiftUI
 
 private enum OnboardingStep: Int, CaseIterable {
     case language = 0, welcome, versions, install
@@ -9,8 +9,10 @@ private enum OnboardingStep: Int, CaseIterable {
 
 struct OnboardingView: View {
     @AppStorage(AppLanguage.storageKey) private var languageCode = AppLanguage.english.rawValue
+    @EnvironmentObject private var licenseManager: LicenseManager
     @State private var step: OnboardingStep = .language
     @State private var dragOffset: CGFloat = 0
+    @State private var showResetConfirm: Bool = false
     var onComplete: () -> Void
 
     private var language: AppLanguage { AppLanguage(rawValue: languageCode) ?? .english }
@@ -29,6 +31,18 @@ struct OnboardingView: View {
         .tint(AppTheme.accent)
         .animation(.spring(response: 0.38, dampingFraction: 0.84), value: step)
         .animation(.spring(response: 0.38, dampingFraction: 0.84), value: languageCode)
+        .alert("Reset Acc", isPresented: $showResetConfirm) {
+            Button("Reset", role: .destructive) {
+                // 1. ลบ License Key ออกจาก Keychain + reset isActive
+                licenseManager.deactivate()
+                // 2. ล้าง Onboarding state
+                UserDefaults.standard.removeObject(forKey: OnboardingStore.completedVersionKey)
+                UserDefaults.standard.removeObject(forKey: OnboardingStore.completedFingerprintKey)
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will reset onboarding. It will appear again on next launch.")
+        }
     }
 
     private var header: some View {
@@ -341,6 +355,33 @@ struct OnboardingView: View {
                 Text(language.text("onboarding.language_hint"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            if step == .install {
+                Button {
+                    showResetConfirm = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.counterclockwise.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                        Text("Reset Acc")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 11)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color.red.opacity(0.08))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .stroke(Color.red.opacity(0.25), lineWidth: 1)
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 20)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .padding(.vertical, 16)

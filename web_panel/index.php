@@ -1641,15 +1641,15 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
   </div>
   <nav class="nav">
     <a href="index.php?tab=dashboard" class="<?= $tab==='dashboard'?'active':'' ?>"><i class="fa-solid fa-chart-simple"></i>Dashboard</a>
-    <a href="index.php?tab=licenses" class="<?= $tab==='licenses'?'active':'' ?>"><i class="fa-solid fa-key"></i><?= $isAdmin?'License Keys':'My Licenses' ?><span class="n"><?= (int)$totalKeys ?></span></a>
+    <a href="index.php?tab=licenses" class="<?= $tab==='licenses'?'active':'' ?>"><i class="fa-solid fa-key"></i><?= $isAdmin?'คีย์ทั้งหมด':'My Licenses' ?><span class="n"><?= (int)$totalKeys ?></span></a>
     <a href="index.php?tab=generator" class="<?= $tab==='generator'?'active':'' ?>"><i class="fa-solid fa-plus"></i>สร้างคีย์</a>
     <a href="index.php?tab=devices" class="<?= $tab==='devices'?'active':'' ?>"><i class="fa-solid fa-mobile-screen-button"></i>อุปกรณ์<span class="n"><?= (int)$boundDevicesCount ?></span></a>
     <?php if ($isAdmin): ?>
     <div class="nav-gap"></div>
     <a href="index.php?tab=resellers" class="<?= $tab==='resellers'?'active':'' ?>"><i class="fa-solid fa-users"></i>ตัวแทน<span class="n"><?= (int)$totalResellers ?></span></a>
-    <a href="index.php?tab=remote" class="<?= $tab==='remote'?'active':'' ?>"><i class="fa-solid fa-tower-broadcast"></i>Remote Control</a>
-    <a href="index.php?tab=patches" class="<?= $tab==='patches'?'active':'' ?>"><i class="fa-solid fa-cloud-arrow-up"></i>Cloud Patches (OTA)</a>
-    <a href="index.php?tab=logs" class="<?= $tab==='logs'?'active':'' ?>"><i class="fa-solid fa-clock-rotate-left"></i>Activity Logs</a>
+    <a href="index.php?tab=remote" class="<?= $tab==='remote'?'active':'' ?>"><i class="fa-solid fa-tower-broadcast"></i>ควบคุมl</a>
+    <a href="index.php?tab=patches" class="<?= $tab==='patches'?'active':'' ?>"><i class="fa-solid fa-cloud-arrow-up"></i>อัพเดทออนไลค์</a>
+    <a href="index.php?tab=logs" class="<?= $tab==='logs'?'active':'' ?>"><i class="fa-solid fa-clock-rotate-left"></i>ธุระกรรม</a>
     <a href="index.php?tab=settings" class="<?= $tab==='settings'?'active':'' ?>"><i class="fa-solid fa-gear"></i>ตั้งค่า</a>
     <?php endif; ?>
   </nav>
