@@ -1735,9 +1735,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
             <td data-label="โน้ต" class="dim"><?= e($l['note'] ?: '-') ?></td>
             <td data-label="จัดการ"><div class="actions">
               <form method="POST" onsubmit="return requestActionConfirm(event, this, &#39;รีเซ็ต HWID&#39;, &#39;ปลดล็อกเครื่องให้กับคีย์นี้ เพื่อให้ลูกค้านำไปใช้กับเครื่องใหม่ได้ทันที&#39;, &#39;fa-solid fa-arrows-rotate&#39;, false, &#39;รีเซ็ตเครื่อง&#39;)"><input type="hidden" name="action" value="reset_hwid"><input type="hidden" name="id" value="<?= (int)$l['id'] ?>"><button class="act" title="รีเซ็ต HWID"><i class="fa-solid fa-arrows-rotate"></i></button></form>
-              <form method="POST" onsubmit="return requestActionConfirm(event, this, &#39;สุ่มรหัสคีย์ใหม่ (Re-Key)&#39;, &#39;สุ่มรหัสคีย์ใหม่แทนที่คีย์เดิมและปลดล็อกเครื่องทันที โดยไม่หักเครดิตเพิ่ม&#39;, &#39;fa-solid fa-shuffle&#39;, false, &#39;สุ่มคีย์ใหม่&#39;)"><input type="hidden" name="action" value="rekey"><input type="hidden" name="id" value="<?= (int)$l['id'] ?>"><button class="act" title="รีคีย์"><i class="fa-solid fa-shuffle"></i></button></form>
               <?php if ($isAdmin): ?>
-              <form method="POST" onsubmit="return confirm('เพิ่ม 30 วัน ให้คีย์นี้?')"><input type="hidden" name="action" value="extend_days"><input type="hidden" name="id" value="<?= (int)$l['id'] ?>"><input type="hidden" name="days" value="30"><button class="act" title="+30 วัน"><i class="fa-solid fa-calendar-plus"></i></button></form>
               <form method="POST"><input type="hidden" name="action" value="toggle_ban"><input type="hidden" name="id" value="<?= (int)$l['id'] ?>"><button class="act" title="<?= $l['status']==='banned'?'ปลดแบน':'แบน' ?>"><i class="fa-solid <?= $l['status']==='banned'?'fa-check':'fa-ban' ?>"></i></button></form>
               <?php endif; ?>
               <form method="POST" onsubmit="return requestActionConfirm(event, this, &#39;ลบคีย์นี้ถาวร&#39;, &#39;ต้องการลบคีย์นี้ออกจากระบบถาวรหรือไม่? การดำเนินการนี้ไม่สามารถเรียกคืนได้&#39;, &#39;fa-solid fa-trash-can&#39;, true, &#39;ลบคีย์ถาวร&#39;)"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int)$l['id'] ?>"><button class="act danger" title="ลบ"><i class="fa-solid fa-trash-can"></i></button></form>
@@ -1807,7 +1805,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
           <div class="dim" style="text-align:center;margin-bottom:12px">ตัวอย่างรูปแบบคีย์</div>
           <div class="sum-row"><span>ระยะเวลา</span><b id="previewDurationText">30 วัน</b></div>
           <div class="sum-row"><span>ผูกเครื่อง</span><b>อัตโนมัติเมื่อเปิดใช้ครั้งแรก</b></div>
-          <div class="sum-row"><span>รีเซ็ต / รีคีย์</span><b>ฟรี</b></div>
+          <div class="sum-row"><span>รีเซ็ต HWID</span><b>ฟรี</b></div>
           <?php if ($isReseller): ?>
           <div class="sum-row"><span>เครดิตคงเหลือ</span><b><?= number_format($currentResellerCredits) ?></b></div>
           <div class="sum-row"><span>เครดิตที่จะหัก</span><b id="calcDeductText" style="color:var(--bad)">-1</b></div>
