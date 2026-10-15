@@ -249,10 +249,25 @@ function ensureCloudPatchesTable($pdo) {
             'downloads_count' => "ALTER TABLE `cloud_patches` ADD COLUMN `downloads_count` int(11) NOT NULL DEFAULT 0",
             'created_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `created_at` datetime DEFAULT NULL",
             'updated_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `updated_at` datetime DEFAULT NULL",
+            'filename'        => "ALTER TABLE `cloud_patches` ADD COLUMN `filename` varchar(255) NOT NULL DEFAULT ''",
         ];
         foreach ($migrations as $col => $sql) {
             if (!in_array($col, $existingCols, true)) {
                 try { $pdo->exec($sql); } catch (Throwable $e2) {}
+            }
+        }
+
+        // Fix legacy columns that exist but have no DEFAULT value (prevents HY000 errors)
+        $fixDefaults = [
+            'filename'        => "ALTER TABLE `cloud_patches` MODIFY COLUMN `filename` varchar(255) NOT NULL DEFAULT ''",
+            'patch_name'      => "ALTER TABLE `cloud_patches` MODIFY COLUMN `patch_name` varchar(100) NOT NULL DEFAULT ''",
+            'target_filename' => "ALTER TABLE `cloud_patches` MODIFY COLUMN `target_filename` varchar(100) NOT NULL DEFAULT ''",
+            'file_path'       => "ALTER TABLE `cloud_patches` MODIFY COLUMN `file_path` varchar(255) NOT NULL DEFAULT ''",
+            'file_hash'       => "ALTER TABLE `cloud_patches` MODIFY COLUMN `file_hash` varchar(64) NOT NULL DEFAULT ''",
+        ];
+        foreach ($fixDefaults as $col => $sql) {
+            if (in_array($col, $existingCols, true)) {
+                try { $pdo->exec($sql); } catch (Throwable $e4) {}
             }
         }
 
