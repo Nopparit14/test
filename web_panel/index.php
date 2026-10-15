@@ -775,10 +775,18 @@ function getResellerExpiryBadge($expiresAt) {
 }
 
 $sysSettings = ($isAdmin && in_array($tab, ['remote', 'settings'], true)) ? getSystemSettings($pdo) : [];
-$cloudPatches = ($isAdmin && $tab === 'patches') ? (function() use ($pdo) {
-    ensureCloudPatchesTable($pdo);
-    return $pdo->query("SELECT * FROM `cloud_patches` ORDER BY `id` DESC")->fetchAll();
-})() : [];
+$cloudPatches = [];
+if ($isAdmin && $tab === 'patches') {
+    try {
+        if (function_exists('ensureCloudPatchesTable')) {
+            ensureCloudPatchesTable($pdo);
+        }
+        $stmt = $pdo->query("SELECT * FROM `cloud_patches` ORDER BY `id` DESC");
+        $cloudPatches = $stmt ? $stmt->fetchAll() : [];
+    } catch (Throwable $e) {
+        $cloudPatches = [];
+    }
+}
 
 $pageTitles = [
     'dashboard' => ['Dashboard', $isAdmin ? 'ภาพรวมระบบและสถิติคีย์ทั้งหมด' : 'ภาพรวมบัญชีตัวแทนและสถิติคีย์ของคุณ'],
@@ -1980,8 +1988,12 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
   <?php elseif ($tab === 'patches' && $isAdmin): ?>
     <?php
       $totalCloudPatches = count($cloudPatches);
-      $activeCloudPatches = count(array_filter($cloudPatches, fn($p) => (int)$p['is_active'] === 1));
-      $totalCloudDownloads = array_sum(array_column($cloudPatches, 'downloads_count'));
+      $activeCloudPatches = 0;
+      $totalCloudDownloads = 0;
+      foreach ($cloudPatches as $cpItem) {
+          if (!empty($cpItem['is_active'])) $activeCloudPatches++;
+          $totalCloudDownloads += (int)($cpItem['downloads_count'] ?? 0);
+      }
     ?>
     <div class="stats" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
       <div class="stat"><div class="stat-top"><span>ไฟล์แพตช์ทั้งหมด</span><div class="stat-icon"><i class="fa-solid fa-file-code"></i></div></div><b><?= number_format($totalCloudPatches) ?></b><small>รายการแพตช์ในระบบ</small></div>
@@ -2163,31 +2175,31 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
                     <small class="dim" style="display:block"><?= e($cp['description']) ?></small>
                   <?php endif; ?>
                 </td>
-                <td data-label="ขนาด" class="mono"><?= number_format($cp['file_size'] / 1024, 1) ?> KB</td>
+                <td data-label="ขนาด" class="mono"><?= number_format(((float)($cp['file_size'] ?? 0)) / 1024, 1) ?> KB</td>
                 <td data-label="SHA256">
-                  <span class="mono dim" style="font-size:11px" title="<?= e($cp['file_hash']) ?>">
-                    <?= substr($cp['file_hash'], 0, 10) ?>...<?= substr($cp['file_hash'], -8) ?>
+                  <span class="mono dim" style="font-size:11px" title="<?= e($cp['file_hash'] ?? '') ?>">
+                    <?= substr((string)($cp['file_hash'] ?? ''), 0, 10) ?>...<?= substr((string)($cp['file_hash'] ?? ''), -8) ?>
                   </span>
-                  <button type="button" class="btn btn-sm" style="height:24px;padding:0 6px;margin-left:4px" onclick="copyText('<?= e($cp['file_hash']) ?>', 'คัดลอก Checksum แล้ว')" title="คัดลอก Hash"><i class="fa-regular fa-copy"></i></button>
+                  <button type="button" class="btn btn-sm" style="height:24px;padding:0 6px;margin-left:4px" onclick="copyText('<?= e($cp['file_hash'] ?? '') ?>', 'คัดลอก Checksum แล้ว')" title="คัดลอก Hash"><i class="fa-regular fa-copy"></i></button>
                 </td>
-                <td data-label="ดาวน์โหลด" class="mono"><i class="fa-solid fa-arrow-down" style="color:var(--muted);font-size:11px"></i> <?= number_format($cp['downloads_count']) ?></td>
-                <td data-label="อัปเดต" class="dim" style="font-size:12px"><?= date('d/m/Y H:i', strtotime($cp['updated_at'])) ?></td>
+                <td data-label="ดาวน์โหลด" class="mono"><i class="fa-solid fa-arrow-down" style="color:var(--muted);font-size:11px"></i> <?= number_format((int)($cp['downloads_count'] ?? 0)) ?></td>
+                <td data-label="อัปเดต" class="dim" style="font-size:12px"><?= !empty($cp['updated_at']) ? date('d/m/Y H:i', strtotime($cp['updated_at'])) : (!empty($cp['created_at']) ? date('d/m/Y H:i', strtotime($cp['created_at'])) : '-') ?></td>
                 <td data-label="สถานะ">
                   <form method="POST" style="display:inline">
                     <input type="hidden" name="action" value="toggle_cloud_patch">
-                    <input type="hidden" name="patch_id" value="<?= (int)$cp['id'] ?>">
-                    <input type="hidden" name="state" value="<?= (int)$cp['is_active'] ? '0' : '1' ?>">
-                    <button class="pill" style="cursor:pointer;border:none;background:<?= (int)$cp['is_active'] ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' ?>;color:<?= (int)$cp['is_active'] ? '#4ade80' : '#f87171' ?>">
-                      <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px"></i> <?= (int)$cp['is_active'] ? 'เปิด OTA' : 'ปิดชั่วคราว' ?>
+                    <input type="hidden" name="patch_id" value="<?= (int)($cp['id'] ?? 0) ?>">
+                    <input type="hidden" name="state" value="<?= !empty($cp['is_active']) ? '0' : '1' ?>">
+                    <button class="pill" style="cursor:pointer;border:none;background:<?= !empty($cp['is_active']) ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' ?>;color:<?= !empty($cp['is_active']) ? '#4ade80' : '#f87171' ?>">
+                      <i class="fa-solid fa-circle" style="font-size:7px;margin-right:4px"></i> <?= !empty($cp['is_active']) ? 'เปิด OTA' : 'ปิดชั่วคราว' ?>
                     </button>
                   </form>
                 </td>
                 <td data-label="จัดการ" style="text-align:right">
                   <div style="display:inline-flex;gap:6px">
-                    <a href="api.php?action=download_patch&id=<?= (int)$cp['id'] ?>" class="btn btn-sm" title="ทดสอบดาวน์โหลด"><i class="fa-solid fa-download"></i></a>
-                    <form method="POST" onsubmit="return requestActionConfirm(event, this, 'ลบไฟล์สูตร <?= e($cp['target_filename']) ?>?', 'ไฟล์แพตช์นี้จะถูกลบออกจากเซิร์ฟเวอร์อย่างถาวร', 'fa-solid fa-trash', true, 'ลบแพตช์')">
+                    <a href="api.php?action=download_patch&id=<?= (int)($cp['id'] ?? 0) ?>" class="btn btn-sm" title="ทดสอบดาวน์โหลด"><i class="fa-solid fa-download"></i></a>
+                    <form method="POST" onsubmit="return requestActionConfirm(event, this, 'ลบไฟล์สูตร <?= htmlspecialchars(addslashes($cp['target_filename'] ?? ''), ENT_QUOTES) ?>?', 'ไฟล์แพตช์นี้จะถูกลบออกจากเซิร์ฟเวอร์อย่างถาวร', 'fa-solid fa-trash', true, 'ลบแพตช์')">
                       <input type="hidden" name="action" value="delete_cloud_patch">
-                      <input type="hidden" name="patch_id" value="<?= (int)$cp['id'] ?>">
+                      <input type="hidden" name="patch_id" value="<?= (int)($cp['id'] ?? 0) ?>">
                       <button class="btn btn-sm btn-danger" title="ลบ"><i class="fa-solid fa-trash"></i></button>
                     </form>
                   </div>

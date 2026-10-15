@@ -82,6 +82,7 @@ if ($action === 'ping') {
         'status' => 'success',
         'message' => 'API is online and reachable.',
         'server_time' => date('Y-m-d H:i:s'),
+        'php_version' => PHP_VERSION,
         'ip' => $clientIP,
         'remote_config' => $remoteConfigPayload
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
