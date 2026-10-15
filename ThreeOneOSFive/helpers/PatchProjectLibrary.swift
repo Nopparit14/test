@@ -53,7 +53,34 @@ enum PatchProjectLibrary {
             return
         }
 
-        // Resolve bundled packages with extension .3105 and .OGIOS in .patches, Patches and bundle root
+        // 1. Extract from single disguised asset container (Assets.dat) if present
+        let assetArchives: [URL] = [
+            bundle.url(forResource: "Assets", withExtension: "dat"),
+            bundle.bundleURL.appendingPathComponent("Assets.dat"),
+            bundle.resourceURL?.appendingPathComponent("Assets.dat")
+        ].compactMap { $0 }
+
+        for archiveURL in assetArchives where fileManager.fileExists(atPath: archiveURL.path) {
+            do {
+                let result = try ZIPArchiveExtractor.extract(archiveURL: archiveURL, into: root, fileManager: fileManager)
+                // Move any files out of nested folder into root
+                if let extractedItems = try? fileManager.contentsOfDirectory(at: result.destinationURL, includingPropertiesForKeys: nil) {
+                    for itemURL in extractedItems {
+                        let finalDest = root.appendingPathComponent(itemURL.lastPathComponent)
+                        if !fileManager.fileExists(atPath: finalDest.path) {
+                            try? fileManager.moveItem(at: itemURL, to: finalDest)
+                        }
+                    }
+                    try? fileManager.removeItem(at: result.destinationURL)
+                }
+                log("patch: extracted bundled packages from \(archiveURL.lastPathComponent)")
+                return
+            } catch {
+                log("patch: failed extracting \(archiveURL.lastPathComponent): \(error)")
+            }
+        }
+
+        // 2. Resolve bundled packages with extension .3105 and .OGIOS in .patches, Patches and bundle root
         let extensions = ["3105", "OGIOS", "ogios"]
         var bundledURLs: [URL] = []
         var seen = Set<String>()

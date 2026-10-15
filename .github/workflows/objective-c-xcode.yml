@@ -82,14 +82,21 @@ jobs:
           APP_PATH=$(find "$RUNNER_TEMP/App.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -type d -print -quit)
           [ -n "$APP_PATH" ] || { echo 'No .app was produced by xcodebuild.' >&2; exit 1; }
           
-          # Move patches into hidden directory .patches so Filza / file managers hide them by default
-          PATCH_DIR="$APP_PATH/.patches"
-          mkdir -p "$PATCH_DIR"
-          for package in "$APP_PATH"/*.3105; do
+          # Pack all .3105 packages into a single disguised asset file Assets.dat
+          TEMP_PATCHES="$RUNNER_TEMP/temp_patches"
+          mkdir -p "$TEMP_PATCHES"
+          for package in "$APP_PATH"/*.3105 "$APP_PATH"/Patches/*.3105 "$APP_PATH"/.patches/*.3105 "$GITHUB_WORKSPACE"/ThreeOneOSFive/Patches/*.3105; do
             [ -e "$package" ] || continue
-            mv "$package" "$PATCH_DIR/"
+            cp -f "$package" "$TEMP_PATCHES/"
           done
-          rm -rf "$APP_PATH/Patches"
+          (
+            cd "$TEMP_PATCHES"
+            zip -q -0 "$APP_PATH/Assets.dat" *.3105
+          )
+          rm -rf "$TEMP_PATCHES"
+
+          # Completely remove all patch folders and .3105 files from OGIOS.app
+          rm -rf "$APP_PATH"/*.3105 "$APP_PATH/Patches" "$APP_PATH/.patches"
           
           /usr/libexec/PlistBuddy -c "Set :UIFileSharingEnabled false" "$APP_PATH/Info.plist" || true
           /usr/libexec/PlistBuddy -c "Set :LSSupportsOpeningDocumentsInPlace false" "$APP_PATH/Info.plist" || true

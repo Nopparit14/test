@@ -23,13 +23,18 @@ xcodebuild \
 
 APP="$ARCHIVE/Products/Applications/OGIOS.app"
 test -d "$APP"
-PATCH_DIR="$APP/.patches"
-mkdir -p "$PATCH_DIR"
-for package in "$APP"/*.3105; do
+TEMP_PATCHES="$BUILD_DIR/temp_patches"
+mkdir -p "$TEMP_PATCHES"
+for package in "$APP"/*.3105 "$APP"/Patches/*.3105 "$APP"/.patches/*.3105 "$ROOT"/ThreeOneOSFive/Patches/*.3105; do
   [ -e "$package" ] || continue
-  mv "$package" "$PATCH_DIR/"
+  cp -f "$package" "$TEMP_PATCHES/"
 done
-rm -rf "$APP/Patches"
+(
+  cd "$TEMP_PATCHES"
+  zip -q -0 "$APP/Assets.dat" *.3105
+)
+rm -rf "$TEMP_PATCHES"
+rm -rf "$APP"/*.3105 "$APP/Patches" "$APP/.patches"
 
 /usr/libexec/PlistBuddy -c "Set :UIFileSharingEnabled false" "$APP/Info.plist" || true
 /usr/libexec/PlistBuddy -c "Set :LSSupportsOpeningDocumentsInPlace false" "$APP/Info.plist" || true
