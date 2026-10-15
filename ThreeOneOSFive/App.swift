@@ -30,7 +30,11 @@ struct ThreeOneOSFiveApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if licenseManager.isActive {
+                if licenseManager.isKillSwitched {
+                    RemoteKillSwitchView(manager: licenseManager)
+                } else if licenseManager.isUpdateRequired {
+                    RemoteForceUpdateView(manager: licenseManager)
+                } else if licenseManager.isActive {
                     ContentView()
                         .environmentObject(licenseManager)
                 } else {
@@ -42,6 +46,13 @@ struct ThreeOneOSFiveApp: App {
                 .environmentObject(fileOperationCoordinator)
                 .environment(\.appLanguage, language)
                 .environment(\.locale, language.locale)
+            .sheet(isPresented: $licenseManager.showAnnouncement) {
+                if let announcement = licenseManager.activeAnnouncement {
+                    RemoteAnnouncementView(announcement: announcement) {
+                        licenseManager.dismissAnnouncement()
+                    }
+                }
+            }
             .alert(item: $updateOffer) { offer in
                 Alert(
                     title: Text(language.text("update.title")),

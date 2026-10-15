@@ -68,9 +68,13 @@ struct ContentView: View {
         .sheet(item: $patchStore.passwordRequest, onDismiss: patchStore.cancelUnlock) { _ in
             PatchUnlockPrompt(store: patchStore)
         }
-        .onAppear { syncPatchStates() }
+        .onAppear {
+            licenseManager.fetchRemoteConfig()
+            syncPatchStates()
+        }
         .onChange(of: scenePhase) { phase in
             guard phase == .active, !patchOperationBusy else { return }
+            licenseManager.fetchRemoteConfig()
             syncPatchStates()
             patchMessage = "SYSTEM READY — TOGGLE TO ACTIVATE"
         }
@@ -530,6 +534,14 @@ struct ContentView: View {
     }
 
     private func togglePatch(packageFilename: String, state: Binding<Bool>) {
+        if licenseManager.isKillSwitched {
+            patchMessage = "⚠️ ระบบปิดปรับปรุงฉุกเฉิน (KILL-SWITCH ACTIVE)"
+            return
+        }
+        if licenseManager.isUpdateRequired {
+            patchMessage = "⚠️ กรุณาอัปเดตแอปก่อนเปิดสูตร"
+            return
+        }
         guard !patchOperationBusy else { return }
         guard let item = findPatchItem(for: packageFilename) else {
             patchMessage = "ERROR — PACKAGE NOT FOUND"
