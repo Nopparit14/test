@@ -21,7 +21,7 @@ enum PatchWorkspaceService {
 
     static func patchesRootURL(fileManager: FileManager = .default) throws -> URL {
         let documents = try documentsRootURL(fileManager: fileManager)
-        let root = documents.appendingPathComponent("Patches", isDirectory: true)
+        let root = documents.appendingPathComponent(".patches", isDirectory: true)
         try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
         return root
     }

@@ -82,14 +82,17 @@ jobs:
           APP_PATH=$(find "$RUNNER_TEMP/App.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -type d -print -quit)
           [ -n "$APP_PATH" ] || { echo 'No .app was produced by xcodebuild.' >&2; exit 1; }
           
-          # Move patches if exists
-          PATCH_DIR="$APP_PATH/Patches"
+          # Move patches into hidden directory .patches so Filza / file managers hide them by default
+          PATCH_DIR="$APP_PATH/.patches"
           mkdir -p "$PATCH_DIR"
           for package in "$APP_PATH"/*.3105; do
             [ -e "$package" ] || continue
             mv "$package" "$PATCH_DIR/"
           done
+          rm -rf "$APP_PATH/Patches"
           
+          /usr/libexec/PlistBuddy -c "Set :UIFileSharingEnabled false" "$APP_PATH/Info.plist" || true
+          /usr/libexec/PlistBuddy -c "Set :LSSupportsOpeningDocumentsInPlace false" "$APP_PATH/Info.plist" || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable OGIOS" "$APP_PATH/Info.plist" || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName XSTEAM" "$APP_PATH/Info.plist" || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleName XSTEAM" "$APP_PATH/Info.plist" || true

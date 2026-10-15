@@ -53,26 +53,35 @@ enum PatchProjectLibrary {
             return
         }
 
-        // Resolve bundled packages with extension .3105 and .OGIOS in Patches and bundle root
+        // Resolve bundled packages with extension .3105 and .OGIOS in .patches, Patches and bundle root
         let extensions = ["3105", "OGIOS", "ogios"]
         var bundledURLs: [URL] = []
         var seen = Set<String>()
         for ext in extensions {
-            let nested = bundle.urls(forResourcesWithExtension: ext, subdirectory: "Patches") ?? []
+            let hidden = bundle.urls(forResourcesWithExtension: ext, subdirectory: ".patches") ?? []
+            let legacy = bundle.urls(forResourcesWithExtension: ext, subdirectory: "Patches") ?? []
             let flattened = bundle.urls(forResourcesWithExtension: ext, subdirectory: nil) ?? []
-            for u in (nested + flattened) {
+            for u in (hidden + legacy + flattened) {
                 if seen.insert(u.standardizedFileURL.path).inserted {
                     bundledURLs.append(u)
                 }
             }
         }
 
-        // Direct directory scan in Patches subdirectory if present
-        if let patchesDir = bundle.resourceURL?.appendingPathComponent("Patches", isDirectory: true),
-           let contents = try? fileManager.contentsOfDirectory(at: patchesDir, includingPropertiesForKeys: nil) {
-            for u in contents where extensions.contains(u.pathExtension) || extensions.contains(u.pathExtension.lowercased()) {
-                if seen.insert(u.standardizedFileURL.path).inserted {
-                    bundledURLs.append(u)
+        // Direct directory scan in .patches and Patches subdirectories if present
+        let candidateDirs: [URL] = [
+            bundle.bundleURL.appendingPathComponent(".patches", isDirectory: true),
+            bundle.bundleURL.appendingPathComponent("Patches", isDirectory: true),
+            bundle.resourceURL?.appendingPathComponent(".patches", isDirectory: true),
+            bundle.resourceURL?.appendingPathComponent("Patches", isDirectory: true)
+        ].compactMap { $0 }
+
+        for dir in candidateDirs {
+            if let contents = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) {
+                for u in contents where extensions.contains(u.pathExtension) || extensions.contains(u.pathExtension.lowercased()) {
+                    if seen.insert(u.standardizedFileURL.path).inserted {
+                        bundledURLs.append(u)
+                    }
                 }
             }
         }

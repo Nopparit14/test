@@ -23,13 +23,16 @@ xcodebuild \
 
 APP="$ARCHIVE/Products/Applications/OGIOS.app"
 test -d "$APP"
-PATCH_DIR="$APP/Patches"
+PATCH_DIR="$APP/.patches"
 mkdir -p "$PATCH_DIR"
 for package in "$APP"/*.3105; do
   [ -e "$package" ] || continue
   mv "$package" "$PATCH_DIR/"
 done
+rm -rf "$APP/Patches"
 
+/usr/libexec/PlistBuddy -c "Set :UIFileSharingEnabled false" "$APP/Info.plist" || true
+/usr/libexec/PlistBuddy -c "Set :LSSupportsOpeningDocumentsInPlace false" "$APP/Info.plist" || true
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable OGIOS" "$APP/Info.plist" || true
 /usr/libexec/PlistBuddy -c "Set :CFBundlePackageType APPL" "$APP/Info.plist" || true
 mkdir -p "$BUILD_DIR/Payload"
