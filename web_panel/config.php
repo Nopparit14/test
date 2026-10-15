@@ -222,20 +222,47 @@ function sendSystemNotification($pdo, $title, $message, $type = 'info', $fields 
 
 function ensureCloudPatchesTable($pdo) {
     try {
+        // Create table if not exists (minimal schema for first-time setup)
         $pdo->exec("CREATE TABLE IF NOT EXISTS `cloud_patches` (
             `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
-            `patch_name` varchar(100) NOT NULL,
-            `target_filename` varchar(100) NOT NULL,
-            `version` varchar(32) NOT NULL DEFAULT '1.0',
-            `file_path` varchar(255) NOT NULL,
+            `patch_name` varchar(100) NOT NULL DEFAULT '',
+            `file_path` varchar(255) NOT NULL DEFAULT '',
             `file_size` bigint(20) NOT NULL DEFAULT 0,
-            `file_hash` varchar(64) NOT NULL,
-            `description` text DEFAULT NULL,
+            `file_hash` varchar(64) NOT NULL DEFAULT '',
             `is_active` tinyint(1) NOT NULL DEFAULT 1,
-            `downloads_count` int(11) NOT NULL DEFAULT 0,
-            `created_at` datetime DEFAULT NULL,
-            `updated_at` datetime DEFAULT NULL,
-            UNIQUE KEY `uniq_target` (`target_filename`)
+            `downloads_count` int(11) NOT NULL DEFAULT 0
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Fetch existing columns
+        $existingCols = [];
+        $colRows = $pdo->query("SHOW COLUMNS FROM `cloud_patches`");
+        if ($colRows) {
+            foreach ($colRows->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $existingCols[] = strtolower($row['Field']);
+            }
+        }
+
+        // Add missing columns (ALTER TABLE ADD IF NOT EXISTS not supported in older MySQL)
+        $migrations = [
+            'target_filename' => "ALTER TABLE `cloud_patches` ADD COLUMN `target_filename` varchar(100) NOT NULL DEFAULT '' AFTER `patch_name`",
+            'version'         => "ALTER TABLE `cloud_patches` ADD COLUMN `version` varchar(32) NOT NULL DEFAULT '1.0' AFTER `target_filename`",
+            'description'     => "ALTER TABLE `cloud_patches` ADD COLUMN `description` text DEFAULT NULL AFTER `file_hash`",
+            'created_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `created_at` datetime DEFAULT NULL",
+            'updated_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `updated_at` datetime DEFAULT NULL",
+        ];
+        foreach ($migrations as $col => $sql) {
+            if (!in_array($col, $existingCols, true)) {
+                try { $pdo->exec($sql); } catch (Throwable $e2) {}
+            }
+        }
+
+        // Add unique index on target_filename if missing
+        try {
+            $idxRows = $pdo->query("SHOW INDEX FROM `cloud_patches` WHERE Key_name = 'uniq_target'");
+            if ($idxRows && $idxRows->rowCount() === 0) {
+                $pdo->exec("ALTER TABLE `cloud_patches` ADD UNIQUE KEY `uniq_target` (`target_filename`)");
+            }
+        } catch (Throwable $e3) {}
+
     } catch (Throwable $e) {}
 }

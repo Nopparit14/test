@@ -540,94 +540,125 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 14. UPLOAD CLOUD PATCH (OTA)
     if ($action === 'upload_cloud_patch' && $isAdmin) {
-        ensureCloudPatchesTable($pdo);
-        $patchName = trim($_POST['patch_name'] ?? '');
-        $targetFilename = trim($_POST['target_filename'] ?? '');
-        $version = trim($_POST['version'] ?? '1.0');
-        $description = trim($_POST['description'] ?? '');
-
-        if (empty($patchName) || empty($targetFilename)) {
-            $alert = "กรุณากรอกชื่อแพตช์และชื่อไฟล์เป้าหมาย (Target Filename)";
-            $alertType = 'error';
-        } elseif (empty($_FILES['patch_file']['tmp_name']) || $_FILES['patch_file']['error'] !== UPLOAD_ERR_OK) {
-            $alert = "กรุณาเลือกไฟล์แพตช์ที่ต้องการอัปโหลด (.3105)";
-            $alertType = 'error';
-        } else {
-            $uploadDir = __DIR__ . '/uploads/patches/';
-            if (!is_dir($uploadDir)) {
-                @mkdir($uploadDir, 0777, true);
+        try {
+            if (function_exists('ensureCloudPatchesTable')) {
+                ensureCloudPatchesTable($pdo);
             }
+            $patchName = trim($_POST['patch_name'] ?? '');
+            $targetFilename = trim($_POST['target_filename'] ?? '');
+            $version = trim($_POST['version'] ?? '1.0');
+            $description = trim($_POST['description'] ?? '');
 
-            $origName = $_FILES['patch_file']['name'];
-            $ext = pathinfo($origName, PATHINFO_EXTENSION);
-            if (empty($ext)) $ext = '3105';
-
-            $safeTarget = preg_replace('/[^a-zA-Z0-9_\-\.\(\)\s]/', '', $targetFilename);
-            if (empty($safeTarget)) $safeTarget = 'patch.3105';
-            if (!preg_match('/\.3105$/i', $safeTarget) && !preg_match('/\.(ogios|dat|bin)$/i', $safeTarget)) {
-                $safeTarget .= '.3105';
-            }
-
-            $storageFilename = 'patch_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-            $destPath = $uploadDir . $storageFilename;
-            $relativeDbPath = 'uploads/patches/' . $storageFilename;
-
-            if (move_uploaded_file($_FILES['patch_file']['tmp_name'], $destPath)) {
-                $fileSize = filesize($destPath);
-                $fileHash = hash_file('sha256', $destPath);
-
-                // Upsert to cloud_patches
-                $stmt = $pdo->prepare("INSERT INTO `cloud_patches` (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `is_active`)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-                    ON DUPLICATE KEY UPDATE 
-                        `patch_name` = VALUES(`patch_name`),
-                        `version` = VALUES(`version`),
-                        `file_path` = VALUES(`file_path`),
-                        `file_size` = VALUES(`file_size`),
-                        `file_hash` = VALUES(`file_hash`),
-                        `description` = VALUES(`description`),
-                        `is_active` = 1,
-                        `updated_at` = NOW()");
-                $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description]);
-
-                sendSystemNotification($pdo, '☁️ อัปเดตสูตรใหม่ผ่าน Cloud OTA', 'แอดมินได้ทำการอัปโหลดสูตรใหม่ขึ้นเซิร์ฟเวอร์', 'ota', [
-                    'ชื่อสูตร' => $patchName,
-                    'ไฟล์เป้าหมาย' => $safeTarget,
-                    'เวอร์ชั่น' => "v{$version}",
-                    'ขนาดไฟล์' => number_format($fileSize / 1024, 1) . ' KB',
-                    'การทำงาน' => 'แอปในเครื่องลูกค้าจะอัปเดตให้อัตโนมัติ'
-                ]);
-
-                $alert = "อัปโหลดและเปิดใช้งาน Cloud Patch '{$safeTarget}' (v{$version}) เรียบร้อยแล้ว!";
-            } else {
-                $alert = "ไม่สามารถบันทึกไฟล์อัปโหลดลงบนเซิร์ฟเวอร์ได้ ตรวจสอบสิทธิ์โฟลเดอร์ uploads/";
+            if (empty($patchName) || empty($targetFilename)) {
+                $alert = "กรุณากรอกชื่อแพตช์และชื่อไฟล์เป้าหมาย (Target Filename)";
                 $alertType = 'error';
+            } elseif (empty($_FILES['patch_file']['tmp_name']) || $_FILES['patch_file']['error'] !== UPLOAD_ERR_OK) {
+                $upErr = $_FILES['patch_file']['error'] ?? 4;
+                $errMap = [
+                    UPLOAD_ERR_INI_SIZE   => 'ขนาดไฟล์เกินขีดจำกัดที่ PHP อนุญาต (upload_max_filesize)',
+                    UPLOAD_ERR_FORM_SIZE  => 'ขนาดไฟล์เกินขีดจำกัดของแบบฟอร์ม',
+                    UPLOAD_ERR_PARTIAL    => 'ไฟล์ถูกอัปโหลดขึ้นมาเพียงบางส่วน',
+                    UPLOAD_ERR_NO_FILE    => 'กรุณาเลือกไฟล์สูตรที่ต้องการอัปโหลด (.3105)',
+                    UPLOAD_ERR_NO_TMP_DIR => 'เซิร์ฟเวอร์ไม่มีโฟลเดอร์เก็บไฟล์ชั่วคราว (tmp dir)',
+                    UPLOAD_ERR_CANT_WRITE => 'เซิร์ฟเวอร์ไม่สามารถเขียนไฟล์ลงฮาร์ดดิสก์ได้',
+                    UPLOAD_ERR_EXTENSION  => 'ส่วนขยาย PHP บล็อกการอัปโหลดไฟล์'
+                ];
+                $alert = $errMap[$upErr] ?? "ข้อผิดพลาดในการอัปโหลดไฟล์ (Error Code: {$upErr})";
+                $alertType = 'error';
+            } else {
+                $uploadDir = __DIR__ . '/uploads/patches/';
+                if (!is_dir($uploadDir)) {
+                    @mkdir($uploadDir, 0777, true);
+                }
+                if (is_dir($uploadDir) && !is_writable($uploadDir)) {
+                    @chmod($uploadDir, 0777);
+                }
+
+                $origName = $_FILES['patch_file']['name'];
+                $ext = pathinfo($origName, PATHINFO_EXTENSION);
+                if (empty($ext)) $ext = '3105';
+
+                $safeTarget = preg_replace('/[^a-zA-Z0-9_\-\.\(\)\s]/', '', $targetFilename);
+                if (empty($safeTarget)) $safeTarget = 'patch.3105';
+                if (!preg_match('/\.3105$/i', $safeTarget) && !preg_match('/\.(ogios|dat|bin)$/i', $safeTarget)) {
+                    $safeTarget .= '.3105';
+                }
+
+                $storageFilename = 'patch_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                $destPath = $uploadDir . $storageFilename;
+                $relativeDbPath = 'uploads/patches/' . $storageFilename;
+
+                if (move_uploaded_file($_FILES['patch_file']['tmp_name'], $destPath)) {
+                    $fileSize = @filesize($destPath) ?: 0;
+                    $fileHash = @hash_file('sha256', $destPath) ?: '';
+
+                    // Upsert to cloud_patches with created_at and updated_at
+                    $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
+                        (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `is_active`, `created_at`, `updated_at`)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                        ON DUPLICATE KEY UPDATE 
+                            `patch_name` = VALUES(`patch_name`),
+                            `version` = VALUES(`version`),
+                            `file_path` = VALUES(`file_path`),
+                            `file_size` = VALUES(`file_size`),
+                            `file_hash` = VALUES(`file_hash`),
+                            `description` = VALUES(`description`),
+                            `is_active` = 1,
+                            `updated_at` = NOW()");
+                    $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description]);
+
+                    sendSystemNotification($pdo, '☁️ อัปเดตสูตรใหม่ผ่าน Cloud OTA', 'แอดมินได้ทำการอัปโหลดสูตรใหม่ขึ้นเซิร์ฟเวอร์', 'ota', [
+                        'ชื่อสูตร' => $patchName,
+                        'ไฟล์เป้าหมาย' => $safeTarget,
+                        'เวอร์ชั่น' => "v{$version}",
+                        'ขนาดไฟล์' => number_format($fileSize / 1024, 1) . ' KB',
+                        'การทำงาน' => 'แอปในเครื่องลูกค้าจะอัปเดตให้อัตโนมัติ'
+                    ]);
+
+                    $alert = "อัปโหลดและเปิดใช้งาน Cloud Patch '{$safeTarget}' (v{$version}) เรียบร้อยแล้ว!";
+                } else {
+                    $alert = "ไม่สามารถบันทึกไฟล์อัปโหลดลงบนเซิร์ฟเวอร์ได้ ตรวจสอบสิทธิ์โฟลเดอร์ uploads/patches/ (Permission Denied)";
+                    $alertType = 'error';
+                }
             }
+        } catch (Throwable $e) {
+            $alert = "เกิดข้อผิดพลาดในการบันทึกข้อมูลสูตร: " . $e->getMessage();
+            $alertType = 'error';
         }
     }
 
     // 15. TOGGLE CLOUD PATCH
     if ($action === 'toggle_cloud_patch' && $isAdmin) {
-        $pId = (int)($_POST['patch_id'] ?? 0);
-        $state = (int)($_POST['state'] ?? 0);
-        if ($pId > 0) {
-            $pdo->prepare("UPDATE `cloud_patches` SET `is_active` = ? WHERE `id` = ?")->execute([$state, $pId]);
-            $alert = $state ? "เปิดใช้งาน Cloud Patch เรียบร้อย" : "ปิดการใช้งาน Cloud Patch ชั่วคราว";
+        try {
+            $pId = (int)($_POST['patch_id'] ?? 0);
+            $state = (int)($_POST['state'] ?? 0);
+            if ($pId > 0) {
+                $pdo->prepare("UPDATE `cloud_patches` SET `is_active` = ? WHERE `id` = ?")->execute([$state, $pId]);
+                $alert = $state ? "เปิดใช้งาน Cloud Patch เรียบร้อย" : "ปิดการใช้งาน Cloud Patch ชั่วคราว";
+            }
+        } catch (Throwable $e) {
+            $alert = "ไม่สามารถเปลี่ยนสถานะได้: " . $e->getMessage();
+            $alertType = 'error';
         }
     }
 
     // 16. DELETE CLOUD PATCH
     if ($action === 'delete_cloud_patch' && $isAdmin) {
-        $pId = (int)($_POST['patch_id'] ?? 0);
-        if ($pId > 0) {
-            $stmt = $pdo->prepare("SELECT `file_path` FROM `cloud_patches` WHERE `id` = ?");
-            $stmt->execute([$pId]);
-            $fp = $stmt->fetchColumn();
-            if ($fp && file_exists(__DIR__ . '/' . ltrim($fp, '/\\'))) {
-                @unlink(__DIR__ . '/' . ltrim($fp, '/\\'));
+        try {
+            $pId = (int)($_POST['patch_id'] ?? 0);
+            if ($pId > 0) {
+                $stmt = $pdo->prepare("SELECT `file_path` FROM `cloud_patches` WHERE `id` = ?");
+                $stmt->execute([$pId]);
+                $fp = $stmt->fetchColumn();
+                if ($fp && file_exists(__DIR__ . '/' . ltrim($fp, '/\\'))) {
+                    @unlink(__DIR__ . '/' . ltrim($fp, '/\\'));
+                }
+                $pdo->prepare("DELETE FROM `cloud_patches` WHERE `id` = ?")->execute([$pId]);
+                $alert = "ลบ Cloud Patch เรียบร้อยแล้ว";
             }
-            $pdo->prepare("DELETE FROM `cloud_patches` WHERE `id` = ?")->execute([$pId]);
-            $alert = "ลบ Cloud Patch เรียบร้อยแล้ว";
+        } catch (Throwable $e) {
+            $alert = "ไม่สามารถลบได้: " . $e->getMessage();
+            $alertType = 'error';
         }
     }
 }
