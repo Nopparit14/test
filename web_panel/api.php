@@ -370,3 +370,14 @@ echo json_encode([
     'days_left' => 9999,
     'remote_config' => $remoteConfigPayload
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+// --- TEMP DEBUG: show cloud_patches columns (remove after fix) ---
+if ($action === 'dbg_cols_xsth2026') {
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM `cloud_patches`")->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['columns' => $cols], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    } catch (Throwable $ex) {
+        echo json_encode(['error' => $ex->getMessage()]);
+    }
+    exit;
+}
