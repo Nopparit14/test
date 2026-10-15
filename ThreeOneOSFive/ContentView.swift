@@ -22,6 +22,7 @@ struct ContentView: View {
     @State private var aimBodyPackageEnabled = false
     @State private var aimChestPackageEnabled = false
     @State private var magicEnabled = false
+    @State private var resetAccEnabled = false
 
     // Cyber Blue & Neon Cyan Palette
     private let neonCyan = Color(red: 0.0, green: 0.85, blue: 1.0)
@@ -52,7 +53,6 @@ struct ContentView: View {
                     cloudOTABar
                     patchOptionsSection
                     gameLaunchPanel
-                    resetAccPanel
                     footerStatus
                 }
                 .padding(.horizontal, 16)
@@ -358,6 +358,9 @@ struct ContentView: View {
                     accentColor: Color(red: 0.4, green: 0.6, blue: 1.0),
                     isEnabled: $magicEnabled
                 )
+
+                // Reset Acc — ใช้สไตล์เดียวกับ toggle row แต่ทำงานแบบ reset
+                resetAccToggleRow
             }
 
             // Realtime Status Bar
@@ -552,36 +555,82 @@ struct ContentView: View {
         .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
     }
 
-    // MARK: - Reset Acc Panel
-    private var resetAccPanel: some View {
-        Button {
-            showResetConfirm = true
+    // MARK: - Reset Acc Toggle Row (เหมือน patch toggle row)
+    private var resetAccToggleRow: some View {
+        let accentColor = Color.red
+        return Button {
+            guard !patchOperationBusy else { return }
+            withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                resetAccEnabled = true
+            }
+            resetAllPatches()
         } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "arrow.counterclockwise.circle.fill")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundStyle(Color.red.opacity(0.85))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("RESET ACC")
-                        .font(.system(size: 13, weight: .black, design: .rounded))
-                        .foregroundStyle(Color.red.opacity(0.9))
-
-                    Text("Restore All → XSTH.3105")
-                        .font(.system(size: 10, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.red.opacity(0.45))
+            HStack(spacing: 14) {
+                // Icon Box
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(resetAccEnabled ? accentColor.opacity(0.22) : Color.white.opacity(0.05))
+                        .frame(width: 44, height: 44)
+                    Image(systemName: "arrow.counterclockwise.circle.fill")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundStyle(resetAccEnabled ? accentColor : Color.white.opacity(0.4))
                 }
+
+                // Name & Target Info
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Reset Acc")
+                        .font(.system(size: 15, weight: .black, design: .rounded))
+                        .foregroundStyle(.white)
+                    HStack(spacing: 6) {
+                        Text("XSTH.3105 • MASTER BYPASS")
+                            .font(.system(size: 9, weight: .bold, design: .rounded))
+                            .tracking(1.0)
+                            .foregroundStyle(resetAccEnabled ? accentColor : Color.white.opacity(0.35))
+                        Circle().fill(Color.white.opacity(0.2)).frame(width: 3, height: 3)
+                        Text(resetAccEnabled ? "RESETTING…" : "READY")
+                            .font(.system(size: 9, weight: .heavy, design: .rounded))
+                            .foregroundStyle(resetAccEnabled ? Color.orange : Color.white.opacity(0.35))
+                    }
+                }
+
                 Spacer()
 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Color.red.opacity(0.35))
+                // Toggle Switch
+                ZStack(alignment: resetAccEnabled ? .trailing : .leading) {
+                    Capsule()
+                        .fill(
+                            resetAccEnabled ?
+                            LinearGradient(colors: [Color.red.opacity(0.8), Color.red.opacity(0.6)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                            :
+                            LinearGradient(colors: [Color.white.opacity(0.12), Color.white.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        )
+                        .frame(width: 52, height: 30)
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 24, height: 24)
+                        .padding(.horizontal, 3)
+                        .shadow(color: Color.black.opacity(0.4), radius: 3, x: 0, y: 1)
+                }
+                .animation(.spring(response: 0.25, dampingFraction: 0.7), value: resetAccEnabled)
             }
-            .padding(14)
-            .background(Color.red.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.red.opacity(0.25), lineWidth: 1))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(red: 0.06, green: 0.07, blue: 0.09).opacity(0.85))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(
+                        resetAccEnabled ? accentColor.opacity(0.6) : Color.white.opacity(0.08),
+                        lineWidth: resetAccEnabled ? 1.5 : 1
+                    )
+            )
+            .shadow(color: resetAccEnabled ? accentColor.opacity(0.2) : Color.clear, radius: 10, y: 3)
         }
         .buttonStyle(.plain)
+        .disabled(patchOperationBusy)
+        .opacity(patchOperationBusy && !resetAccEnabled ? 0.6 : 1)
     }
 
     // MARK: - Reset All Patches to XSTH.3105
@@ -650,6 +699,9 @@ struct ContentView: View {
                     patchStore.reload()
                     syncPatchStates()
                     patchOperationBusy = false
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        resetAccEnabled = false
+                    }
                     patchMessage = updatedCount > 0
                         ? "RESET ACC COMPLETE — \(updatedCount) OTA PATCH(ES) UPDATED"
                         : (applied ? "RESET ACC COMPLETE — XSTH.3105 APPLIED" : "RESET COMPLETE — ALL PATCHES RESTORED")
