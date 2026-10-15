@@ -2064,7 +2064,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
             <label>ไฟล์เป้าหมายในแอป (Target Filename)</label>
             <div style="display:flex;gap:8px">
               <input class="input" name="target_filename" id="targetFilenameInput" placeholder="เช่น XSTH.3105" required>
-              <select class="input" style="width:210px" onchange="if(this.value){document.getElementById('targetFilenameInput').value=this.value;}">
+              <select class="input" id="targetSelect" style="width:210px" onchange="if(this.value){document.getElementById('targetFilenameInput').value=this.value;}">
                 <option value="">-- เลือกจากสูตรหลัก (XSTH) --</option>
                 <option value="XSTH (6).3105">XSTH (6).3105 (Aim Drag)</option>
                 <option value="XSTH (7).3105">XSTH (7).3105 (Aim Neck)</option>
@@ -2763,8 +2763,33 @@ document.getElementById('confirmBtnAction').addEventListener('click', function()
         dzDefault.style.display = 'none';
         dzPreview.style.display = 'flex';
 
-        if (targetInput && !targetInput.value.trim()) {
-          targetInput.value = file.name;
+        // Smart-detect preset from uploaded filename so different formulas don't overwrite each other
+        const fn = file.name;
+        let matchedTarget = '';
+        let matchedName = '';
+
+        if (fn.includes('(6)')) { matchedTarget = 'XSTH (6).3105'; matchedName = 'Aim Drag'; }
+        else if (fn.includes('(7)')) { matchedTarget = 'XSTH (7).3105'; matchedName = 'Aim Lock Neck'; }
+        else if (fn.includes('(8)')) { matchedTarget = 'XSTH (8).3105'; matchedName = 'HS Peitoff'; }
+        else if (fn.includes('(10)')) { matchedTarget = 'XSTH (10).3105'; matchedName = '144 FPS Unlock'; }
+        else if (fn.includes('(12)')) { matchedTarget = 'XSTH (12).3105'; matchedName = 'Aim Body'; }
+        else if (fn.includes('(2)')) { matchedTarget = 'XSTH (2).3105'; matchedName = 'Aim Chest'; }
+        else if (fn.includes('(14)')) { matchedTarget = 'XSTH (14).3105'; matchedName = 'Magic Bullet'; }
+        else if (/xsth/i.test(fn)) { matchedTarget = 'XSTH.3105'; matchedName = 'Master Bypass'; }
+        else { matchedTarget = file.name; }
+
+        if (targetInput) {
+          targetInput.value = matchedTarget;
+          const targetSelect = document.getElementById('targetSelect');
+          if (targetSelect) targetSelect.value = matchedTarget;
+        }
+
+        const nameInput = document.querySelector('input[name="patch_name"]');
+        if (nameInput && (!nameInput.value.trim() || nameInput.dataset.autofilled === '1')) {
+          if (matchedName) {
+            nameInput.value = matchedName;
+            nameInput.dataset.autofilled = '1';
+          }
         }
       }
     });
