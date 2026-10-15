@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS `cloud_patches` (
   `file_size` bigint(20) NOT NULL DEFAULT 0,
   `file_hash` varchar(64) NOT NULL,
   `description` text DEFAULT NULL,
+  `unlock_password` varchar(255) NOT NULL DEFAULT '',
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `downloads_count` int(11) NOT NULL DEFAULT 0,
   `created_at` datetime DEFAULT NULL,

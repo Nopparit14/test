@@ -116,7 +116,7 @@ if ($action === 'list_patches' || $action === 'patches') {
     $patches = [];
     try {
         ensureCloudPatchesTable($pdo);
-        $stmt = $pdo->query("SELECT `id`, `patch_name`, `target_filename`, `version`, `file_size`, `file_hash`, `description`, `updated_at` FROM `cloud_patches` WHERE `is_active` = 1 ORDER BY `id` ASC");
+        $stmt = $pdo->query("SELECT `id`, `patch_name`, `target_filename`, `version`, `file_size`, `file_hash`, `description`, `unlock_password`, `updated_at` FROM `cloud_patches` WHERE `is_active` = 1 ORDER BY `id` ASC");
         if ($stmt) {
             $patches = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -133,6 +133,7 @@ if ($action === 'list_patches' || $action === 'patches') {
         $p['download_url'] = "{$baseURL}?action=download_patch&id={$p['id']}";
         $p['file_size'] = (int)($p['file_size'] ?? 0);
         $p['id'] = (int)($p['id'] ?? 0);
+        $p['unlock_password'] = (string)($p['unlock_password'] ?? '');
     }
     unset($p);
 

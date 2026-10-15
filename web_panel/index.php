@@ -592,10 +592,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fileSize = @filesize($destPath) ?: 0;
                     $fileHash = @hash_file('sha256', $destPath) ?: '';
 
+                    $unlockPassword = trim($_POST['unlock_password'] ?? '');
+
                     // Upsert to cloud_patches with created_at and updated_at
                     $stmt = $pdo->prepare("INSERT INTO `cloud_patches` 
-                        (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `is_active`, `created_at`, `updated_at`)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
+                        (`patch_name`, `target_filename`, `version`, `file_path`, `file_size`, `file_hash`, `description`, `unlock_password`, `is_active`, `created_at`, `updated_at`)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
                         ON DUPLICATE KEY UPDATE 
                             `patch_name` = VALUES(`patch_name`),
                             `version` = VALUES(`version`),
@@ -603,15 +605,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             `file_size` = VALUES(`file_size`),
                             `file_hash` = VALUES(`file_hash`),
                             `description` = VALUES(`description`),
+                            `unlock_password` = VALUES(`unlock_password`),
                             `is_active` = 1,
                             `updated_at` = NOW()");
-                    $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description]);
+                    $stmt->execute([$patchName, $safeTarget, $version, $relativeDbPath, $fileSize, $fileHash, $description, $unlockPassword]);
 
                     sendSystemNotification($pdo, '☁️ อัปเดตสูตรใหม่ผ่าน Cloud OTA', 'แอดมินได้ทำการอัปโหลดสูตรใหม่ขึ้นเซิร์ฟเวอร์', 'ota', [
                         'ชื่อสูตร' => $patchName,
                         'ไฟล์เป้าหมาย' => $safeTarget,
                         'เวอร์ชั่น' => "v{$version}",
                         'ขนาดไฟล์' => number_format($fileSize / 1024, 1) . ' KB',
+                        'รหัสผ่าน' => !empty($unlockPassword) ? 'มีรหัสผ่าน (ปลดล็อคออโต้)' : 'ไม่มีรหัส',
                         'การทำงาน' => 'แอปในเครื่องลูกค้าจะอัปเดตให้อัตโนมัติ'
                     ]);
 
@@ -623,6 +627,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Throwable $e) {
             $alert = "เกิดข้อผิดพลาดในการบันทึกข้อมูลสูตร: " . $e->getMessage();
+            $alertType = 'error';
+        }
+    }
+
+    // 14.1 UPDATE PATCH UNLOCK PASSWORD
+    if ($action === 'update_patch_password' && $isAdmin) {
+        try {
+            $pId = (int)($_POST['patch_id'] ?? 0);
+            $newPassword = trim($_POST['unlock_password'] ?? '');
+            if ($pId > 0) {
+                $pdo->prepare("UPDATE `cloud_patches` SET `unlock_password` = ?, `updated_at` = NOW() WHERE `id` = ?")->execute([$newPassword, $pId]);
+                $alert = "อัปเดตรหัสผ่านสูตรเรียบร้อยแล้ว (แอปจะดึงรหัสนี้ไปปลดล็อคให้อัตโนมัติ)";
+            }
+        } catch (Throwable $e) {
+            $alert = "ไม่สามารถบันทึกรหัสผ่านได้: " . $e->getMessage();
             $alertType = 'error';
         }
     }
@@ -2078,6 +2097,15 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
           </div>
 
           <div class="field">
+            <label style="display:flex;align-items:center;gap:6px">
+              <i class="fa-solid fa-key" style="color:#facc15"></i> รหัสผ่านปลดล็อคสูตร (Unlock Password)
+              <span class="dim" style="font-weight:normal;font-size:12px">(เว้นว่างไว้ถ้าสูตรไม่มีรหัสผ่าน)</span>
+            </label>
+            <input class="input" name="unlock_password" placeholder="เช่น 3105 หรือใส่รหัสของไฟล์นี้เพื่อให้แอปปลดล็อคให้อัตโนมัติ">
+            <span class="hint">กรณีไฟล์ .3105 มีการตั้งรหัสผ่านไว้ ใส่รหัสตรงนี้แล้วแอปจะนำไปปลดล็อคให้อัตโนมัติ ลูกค้าไม่ต้องพิมพ์เอง</span>
+          </div>
+
+          <div class="field">
             <label>เลือกไฟล์สูตร (.3105, .ogios, .dat)</label>
             <div class="file-dropzone" id="fileDropzone">
               <input type="file" name="patch_file" id="patchFileInput" accept=".3105,.ogios,.dat,.bin" required>
@@ -2181,6 +2209,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
               <tr>
                 <th>ไฟล์เป้าหมาย (Target)</th>
                 <th>ชื่อสูตร &amp; เวอร์ชั่น</th>
+                <th>รหัสปลดล็อค</th>
                 <th>ขนาดไฟล์</th>
                 <th>SHA-256 Checksum</th>
                 <th>ยอดดาวน์โหลด</th>
@@ -2191,7 +2220,7 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
             </thead>
             <tbody>
             <?php if (empty($cloudPatches)): ?>
-              <tr><td colspan="8" class="empty" style="text-align:center;padding:32px;color:var(--muted)">ยังไม่มีไฟล์สูตรบน Cloud OTA — อัปโหลดไฟล์แรกของคุณด้านบนได้เลย</td></tr>
+              <tr><td colspan="9" class="empty" style="text-align:center;padding:32px;color:var(--muted)">ยังไม่มีไฟล์สูตรบน Cloud OTA — อัปโหลดไฟล์แรกของคุณด้านบนได้เลย</td></tr>
             <?php else: foreach ($cloudPatches as $cp): ?>
               <tr>
                 <td data-label="เป้าหมาย">
@@ -2205,6 +2234,16 @@ td.empty { text-align: center; color: var(--dim); padding: 44px 20px; font-size:
                   <?php if (!empty($cp['description'])): ?>
                     <small class="dim" style="display:block"><?= e($cp['description']) ?></small>
                   <?php endif; ?>
+                </td>
+                <td data-label="รหัสปลดล็อค">
+                  <?php if (!empty($cp['unlock_password'])): ?>
+                    <span class="mono" style="background:rgba(234,179,8,0.15);color:#facc15;padding:3px 8px;border-radius:6px;border:1px solid rgba(234,179,8,0.3);font-size:12px;font-weight:700">
+                      <i class="fa-solid fa-key" style="font-size:10px;margin-right:4px"></i> <?= e($cp['unlock_password']) ?>
+                    </span>
+                  <?php else: ?>
+                    <span class="dim" style="font-size:12px;color:#4ade80"><i class="fa-solid fa-lock-open"></i> ไม่มีรหัส</span>
+                  <?php endif; ?>
+                  <button type="button" class="btn btn-sm" style="height:24px;padding:0 6px;margin-left:4px" onclick="editPatchPassword(<?= (int)$cp['id'] ?>, '<?= e(addslashes($cp['unlock_password'] ?? '')) ?>', '<?= e(addslashes($cp['target_filename'] ?? '')) ?>')" title="แก้ไขรหัสผ่านสูตรนี้"><i class="fa-solid fa-pen"></i></button>
                 </td>
                 <td data-label="ขนาด" class="mono"><?= number_format(((float)($cp['file_size'] ?? 0)) / 1024, 1) ?> KB</td>
                 <td data-label="SHA256">
@@ -2731,6 +2770,20 @@ document.getElementById('confirmBtnAction').addEventListener('click', function()
     });
   }
 })();
+
+function editPatchPassword(id, currentPass, filename) {
+  const newPass = prompt('กรอกรหัสผ่านปลดล็อคสูตรสำหรับ ' + filename + ':\n(เว้นว่างไว้หากสูตรนี้ไม่มีรหัสผ่าน)', currentPass || '');
+  if (newPass !== null) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.innerHTML = '<input type="hidden" name="action" value="update_patch_password">' +
+                     '<input type="hidden" name="patch_id" value="' + id + '">' +
+                     '<input type="hidden" name="unlock_password" value="">';
+    form.querySelector('input[name="unlock_password"]').value = newPass.trim();
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
 </script>
 
 </body>

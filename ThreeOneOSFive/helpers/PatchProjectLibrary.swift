@@ -329,6 +329,7 @@ final class CloudPatchManager: ObservableObject {
         let fileSize: Int
         let fileHash: String
         let description: String?
+        let unlockPassword: String?
         let downloadUrl: String
         let updatedAt: String?
 
@@ -340,6 +341,7 @@ final class CloudPatchManager: ObservableObject {
             case fileSize = "file_size"
             case fileHash = "file_hash"
             case description
+            case unlockPassword = "unlock_password"
             case downloadUrl = "download_url"
             case updatedAt = "updated_at"
         }
@@ -355,10 +357,31 @@ final class CloudPatchManager: ObservableObject {
     @Published var syncStatusMessage = "CLOUD OTA READY"
     @Published var lastSyncTime: Date? = nil
     @Published var updatedPatchesCount: Int = 0
+    @Published var cloudPasswords: [String: String] = [:]
 
     private let sessionDelegate = SSLBypassSessionDelegate()
 
-    init() {}
+    init() {
+        // Load cached passwords from UserDefaults
+        for (k, v) in UserDefaults.standard.dictionaryRepresentation() where k.hasPrefix("cloud_patch_pwd_") {
+            if let str = v as? String {
+                let norm = String(k.dropFirst("cloud_patch_pwd_".count))
+                cloudPasswords[norm] = str
+            }
+        }
+    }
+
+    func password(for filename: String) -> String? {
+        let norm = Self.normName(filename)
+        return cloudPasswords[norm]
+    }
+
+    static func normName(_ raw: String) -> String {
+        raw.lowercased()
+            .replacingOccurrences(of: "ogios file", with: "xsth")
+            .replacingOccurrences(of: "xsth file", with: "xsth")
+            .replacingOccurrences(of: " ", with: "")
+    }
 
     // Calculate SHA256 of local file using CryptoKit
     static func sha256(for fileURL: URL) -> String? {
@@ -415,6 +438,13 @@ final class CloudPatchManager: ObservableObject {
                 let updatedCount = await self?.downloadOutdatedPatches(patches: res.patches) ?? 0
                 await MainActor.run {
                     guard let self else { return }
+                    for p in res.patches {
+                        if let pwd = p.unlockPassword, !pwd.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            let key = Self.normName(p.targetFilename)
+                            self.cloudPasswords[key] = pwd
+                            UserDefaults.standard.set(pwd, forKey: "cloud_patch_pwd_\(key)")
+                        }
+                    }
                     self.isSyncing = false
                     self.lastSyncTime = Date()
                     self.updatedPatchesCount = updatedCount

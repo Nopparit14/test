@@ -251,6 +251,7 @@ function ensureCloudPatchesTable($pdo) {
             'updated_at'      => "ALTER TABLE `cloud_patches` ADD COLUMN `updated_at` datetime DEFAULT NULL",
             'filename'        => "ALTER TABLE `cloud_patches` ADD COLUMN `filename` varchar(255) NOT NULL DEFAULT ''",
             'storage_path'    => "ALTER TABLE `cloud_patches` ADD COLUMN `storage_path` varchar(255) NOT NULL DEFAULT ''",
+            'unlock_password' => "ALTER TABLE `cloud_patches` ADD COLUMN `unlock_password` varchar(255) NOT NULL DEFAULT ''",
         ];
         foreach ($migrations as $col => $sql) {
             if (!in_array($col, $existingCols, true)) {
@@ -266,6 +267,7 @@ function ensureCloudPatchesTable($pdo) {
             'target_filename' => "ALTER TABLE `cloud_patches` MODIFY COLUMN `target_filename` varchar(100) NOT NULL DEFAULT ''",
             'file_path'       => "ALTER TABLE `cloud_patches` MODIFY COLUMN `file_path` varchar(255) NOT NULL DEFAULT ''",
             'file_hash'       => "ALTER TABLE `cloud_patches` MODIFY COLUMN `file_hash` varchar(64) NOT NULL DEFAULT ''",
+            'unlock_password' => "ALTER TABLE `cloud_patches` MODIFY COLUMN `unlock_password` varchar(255) NOT NULL DEFAULT ''",
         ];
         foreach ($fixDefaults as $col => $sql) {
             if (in_array($col, $existingCols, true)) {

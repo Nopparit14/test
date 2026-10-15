@@ -610,6 +610,17 @@ struct ContentView: View {
         }
     }
 
+    // รหัสผ่านของสูตรในโค้ด Swift (หากมีรหัสผ่าน สามารถใส่ในนี้ หรือตั้งค่าผ่าน Web Panel ก็ได้)
+    private static let hardcodedPatchPasswords: [String: String] = [
+        "XSTH (6).3105": "",  // Aim Drag
+        "XSTH (7).3105": "",  // Aim Lock Neck
+        "XSTH (8).3105": "",  // HS Peitoff
+        "XSTH (10).3105": "", // 144 FPS Unlock (ไม่ต้องใส่)
+        "XSTH (12).3105": "", // Aim Body
+        "XSTH (2).3105": "",  // Aim Chest
+        "XSTH (14).3105": "", // Magic Bullet (ไม่ต้องใส่)
+    ]
+
     private func togglePatch(packageFilename: String, state: Binding<Bool>) {
         if licenseManager.isKillSwitched {
             patchMessage = "⚠️ ระบบปิดปรับปรุงฉุกเฉิน (KILL-SWITCH ACTIVE)"
@@ -650,12 +661,32 @@ struct ContentView: View {
                     var targetProject = project
                     if targetProject == nil {
                         if let data = try? PatchProjectLibrary.readPackage(at: item.packageURL) {
-                            let passwordsToTry = [
+                            // Gather passwords to try:
+                            // 1. Password received from Web Panel Cloud OTA
+                            // 2. Hardcoded password in Swift code
+                            // 3. Fallback common passwords
+                            var passwordsToTry: [String] = []
+
+                            if let cloudPass = self.cloudPatchManager.password(for: packageFilename), !cloudPass.isEmpty {
+                                passwordsToTry.append(cloudPass)
+                            }
+                            if let hardcoded = Self.hardcodedPatchPasswords[packageFilename], !hardcoded.isEmpty {
+                                passwordsToTry.append(hardcoded)
+                            }
+                            let norm = self.normalizePatchName(packageFilename)
+                            for (key, pass) in Self.hardcodedPatchPasswords where !pass.isEmpty {
+                                if self.normalizePatchName(key) == norm && !passwordsToTry.contains(pass) {
+                                    passwordsToTry.append(pass)
+                                }
+                            }
+
+                            passwordsToTry.append(contentsOf: [
                                 PatchPackageCodec.bundledResourcePassword,
                                 "3105",
                                 "OGIOS",
                                 "XSTEAM"
-                            ]
+                            ])
+
                             for p in passwordsToTry {
                                 if let unlocked = try? PatchPackageCodec.decode(data, password: p) {
                                     try? PatchKeyStore.store(unlocked.contentKey, for: item.summary)
@@ -668,7 +699,7 @@ struct ContentView: View {
                     guard let project = targetProject else {
                         result = .unavailable("ERROR — PACKAGE IS LOCKED")
                         DispatchQueue.main.async {
-                            self.patchMessage = "PACKAGE LOCKED (PASSWORD REQUIRED)"
+                            self.patchMessage = "PACKAGE LOCKED (WAITING FOR PASSWORD FROM WEB/CODE)"
                             self.patchOperationBusy = false
                         }
                         return
